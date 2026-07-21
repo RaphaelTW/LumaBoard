@@ -1,0 +1,12 @@
+{
+  "name": "LumaBoard",
+  "short_name": "LumaBoard",
+  "description": "Central local-first para painéis ambientes e e-paper.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2efe7",
+  "theme_color": "#35513a",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
