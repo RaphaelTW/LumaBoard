@@ -14,7 +14,17 @@ describe("weather helpers", () => {
   });
 
   it("validates stored locations", () => {
-    expect(isStoredLocation({ latitude: -23.5, longitude: -46.6, city: "São Paulo", source: "gps", savedAt: 1 })).toBe(true);
+    expect(isStoredLocation({
+      latitude: -23.5,
+      longitude: -46.6,
+      city: "São Paulo",
+      state: "São Paulo",
+      stateCode: "SP",
+      countryCode: "BR",
+      timezone: "America/Sao_Paulo",
+      source: "gps",
+      savedAt: 1,
+    })).toBe(true);
     expect(isStoredLocation({ latitude: "x", longitude: -46.6, city: "São Paulo" })).toBe(false);
   });
 

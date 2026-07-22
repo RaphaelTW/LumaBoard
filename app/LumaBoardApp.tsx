@@ -13,12 +13,18 @@ import {
   CloudSnow,
   CloudSun,
   Code2,
+  Activity,
+  BookOpen,
+  Droplets,
   Columns3,
   Focus,
   Grid2X2,
   Library,
   ListMusic,
+  Landmark,
+  MapPin,
   Maximize2,
+  Mountain,
   Monitor,
   Moon,
   MoreHorizontal,
@@ -32,6 +38,9 @@ import {
   SlidersHorizontal,
   Sparkles,
   Sun,
+  Sunrise,
+  Tv,
+  Waves,
   Trash2,
   Wind,
   DollarSign,
@@ -66,10 +75,13 @@ import {
   useLocalWidgets,
 } from "./local-widgets";
 import {
+  DEFAULT_PUBLIC_PLUGIN_IDS,
+  normalizeEnabledPublicPlugins,
   describeAqi,
   type PublicSummary,
   usePublicSummary,
 } from "./public-data";
+import { PublicExplorer } from "./public-explorer";
 
 type Theme = "paper" | "night";
 
@@ -103,15 +115,14 @@ const plugins = [
   },
   {
     name: "Dados públicos",
-    description: "AQI, câmbio, feriados e notícias sem chave de API.",
+    description: "Economia, ambiente, conteúdo e consultas públicas sem chave.",
     icon: Code2,
     tone: "moss",
   },
 ];
 
 const weekDays = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
-const DEFAULT_PUBLIC_PLUGINS = ["news", "air", "rates", "holidays"];
-const PUBLIC_PLUGIN_IDS = new Set(DEFAULT_PUBLIC_PLUGINS);
+const DEFAULT_PUBLIC_PLUGINS = [...DEFAULT_PUBLIC_PLUGIN_IDS];
 
 function safeTimezone(timezone: string): string {
   try {
@@ -490,6 +501,44 @@ function LocalWidgetsPanel({
   );
 }
 
+function formatPublicTime(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 5);
+  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function formatCompactNumber(value: number | null): string {
+  if (value === null) return "—";
+  return new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+function formatDecimal(value: number | null, digits = 1): string {
+  if (value === null) return "—";
+  return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value);
+}
+
+function formatDayLength(seconds: number | null): string {
+  if (seconds === null) return "—";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.round((seconds % 3600) / 60);
+  return `${hours}h ${minutes}min`;
+}
+
+function formatMoonPhase(value: string | null): string {
+  const labels: Record<string, string> = {
+    "New Moon": "Lua nova",
+    "Waxing Crescent": "Lua crescente",
+    "First Quarter": "Quarto crescente",
+    "Waxing Gibbous": "Gibosa crescente",
+    "Full Moon": "Lua cheia",
+    "Waning Gibbous": "Gibosa minguante",
+    "Last Quarter": "Quarto minguante",
+    "Waning Crescent": "Lua minguante",
+  };
+  return value ? labels[value] ?? value : "Lua indisponível";
+}
+
 function PublicDataPanel({
   summary,
   status,
@@ -502,20 +551,39 @@ function PublicDataPanel({
   enabled: string[];
 }) {
   const ratesReady = summary.rates.usdBrl !== null || summary.rates.eurBrl !== null;
+  const strongest = summary.earthquakes.strongest;
+  const nearest = summary.earthquakes.nearest;
+  const flood = summary.environment.flood;
+  const marine = summary.environment.marine;
+  const sunData = summary.environment.sun;
+  const book = summary.content.book;
+  const wikipedia = summary.content.wikipedia;
+  const tv = summary.content.tv;
+
   return (
     <section className="public-data-section">
       <header className="section-heading">
         <div><span className="eyebrow">APIS SEM CHAVE</span><h2>Dados públicos atualizados.</h2></div>
         <button className="button secondary" onClick={onRefresh}><RefreshCw className={status === "loading" ? "spin" : ""} /> Atualizar dados</button>
       </header>
-      <div className="public-data-grid">
+      <div className="public-data-grid expanded">
         {enabled.includes("air") && <article className="panel public-data-card"><span className="metric-icon"><Wind /></span><div><span>Qualidade do ar</span><strong>{summary.airQuality.europeanAqi ?? "—"} AQI</strong><small>{describeAqi(summary.airQuality.europeanAqi)} · PM2.5 {summary.airQuality.pm25 ?? "—"} µg/m³</small></div></article>}
         {enabled.includes("rates") && <article className="panel public-data-card"><span className="metric-icon"><DollarSign /></span><div><span>Câmbio</span><strong>{ratesReady ? `US$ ${summary.rates.usdBrl?.toFixed(2) ?? "—"}` : "Indisponível"}</strong><small>€ {summary.rates.eurBrl?.toFixed(2) ?? "—"} · {formatPublicDate(summary.rates.date)}</small></div></article>}
         {enabled.includes("holidays") && <article className="panel public-data-card"><span className="metric-icon"><CalendarDays /></span><div><span>Próximo feriado nacional</span><strong>{summary.nextHoliday?.name ?? "Consultando…"}</strong><small>{formatPublicDate(summary.nextHoliday?.date ?? null)} · BrasilAPI</small></div></article>}
         {enabled.includes("news") && <article className="panel public-data-card news-card"><span className="metric-icon"><Newspaper /></span><div><span>Hacker News</span><strong>{summary.news[0]?.title ?? "Notícias indisponíveis"}</strong>{summary.news[0] && <a href={summary.news[0].url} target="_blank" rel="noreferrer">{summary.news[0].source} · {summary.news[0].score} pontos <ExternalLink /></a>}</div></article>}
-        {enabled.length === 0 && <article className="panel public-data-card empty-public-card"><span className="metric-icon"><Library /></span><div><span>Fontes opcionais ocultas</span><strong>Abra a Biblioteca</strong><small>Ative AQI, câmbio, feriados ou notícias.</small></div></article>}
+        {enabled.includes("economy") && <article className="panel public-data-card"><span className="metric-icon"><Landmark /></span><div><span>Economia do Brasil</span><strong>Selic {formatDecimal(summary.economy.selicAnnual, 2)}% a.a.</strong><small>IPCA mensal {formatDecimal(summary.economy.ipcaMonthly, 2)}% · Banco Central</small></div></article>}
+        {enabled.includes("ibge") && <article className="panel public-data-card"><span className="metric-icon"><MapPin /></span><div><span>Município pelo IBGE</span><strong>{summary.ibge.municipality ?? "Local não identificado"}{summary.ibge.stateCode ? ` · ${summary.ibge.stateCode}` : ""}</strong><small>{summary.ibge.population !== null ? `${formatCompactNumber(summary.ibge.population)} habitantes · ${summary.ibge.populationYear ?? "estimativa"}` : summary.ibge.immediateRegion ?? "Dados regionais indisponíveis"}</small></div></article>}
+        {enabled.includes("earthquakes") && <article className="panel public-data-card"><span className="metric-icon"><Activity /></span><div><span>Terremotos nas últimas 24h</span><strong>{summary.earthquakes.count24h} eventos</strong><small>{strongest ? `Maior M${formatDecimal(strongest.magnitude)} · ${strongest.place}` : "USGS sem eventos recentes"}{nearest && nearest.distanceKm !== null ? ` · mais próximo ${nearest.distanceKm} km` : ""}</small></div></article>}
+        {enabled.includes("elevation") && <article className="panel public-data-card"><span className="metric-icon"><Mountain /></span><div><span>Altitude do local</span><strong>{summary.environment.elevationM === null ? "—" : `${Math.round(summary.environment.elevationM)} m`}</strong><small>Modelo digital de elevação · Open-Meteo</small></div></article>}
+        {enabled.includes("flood") && <article className="panel public-data-card"><span className="metric-icon"><Droplets /></span><div><span>Rio e vazão estimada</span><strong>{flood.discharge === null ? "Sem rio modelado próximo" : `${formatDecimal(flood.discharge)} m³/s`}</strong><small>{flood.maximum === null ? "Open-Meteo Flood" : `máxima prevista ${formatDecimal(flood.maximum)} m³/s · ${formatPublicDate(flood.date)}`}</small></div></article>}
+        {enabled.includes("marine") && <article className="panel public-data-card"><span className="metric-icon"><Waves /></span><div><span>Condição marítima</span><strong>{marine.waveHeightM === null ? "Fora da cobertura marítima" : `Ondas ${formatDecimal(marine.waveHeightM)} m`}</strong><small>{marine.seaTemperatureC === null ? "Disponível em coordenadas costeiras" : `mar ${formatDecimal(marine.seaTemperatureC)} °C · corrente ${formatDecimal(marine.currentVelocityKmh)} km/h`}</small></div></article>}
+        {enabled.includes("sun") && <article className="panel public-data-card"><span className="metric-icon"><Sunrise /></span><div><span>Sol e Lua</span><strong>{formatPublicTime(sunData.sunrise)} → {formatPublicTime(sunData.sunset)}</strong><small>{formatDayLength(sunData.dayLengthSeconds)} de luz · {formatMoonPhase(sunData.moonPhase)}{sunData.moonIllumination === null ? "" : ` ${formatDecimal(sunData.moonIllumination)}%`} · <a href="https://sunrise-sunset.org/" target="_blank" rel="noreferrer">Sunrise-Sunset.org</a></small></div></article>}
+        {enabled.includes("books") && <article className="panel public-data-card news-card"><span className="metric-icon"><BookOpen /></span><div><span>Livro em destaque</span><strong>{book?.title ?? "Livro indisponível"}</strong>{book && <a href={book.url} target="_blank" rel="noreferrer">{book.author}{book.year ? ` · ${book.year}` : ""} <ExternalLink /></a>}</div></article>}
+        {enabled.includes("wikipedia") && <article className="panel public-data-card news-card"><span className="metric-icon"><Code2 /></span><div><span>Wikipédia</span><strong>{wikipedia?.title ?? "Artigo indisponível"}</strong>{wikipedia && <a href={wikipedia.url} target="_blank" rel="noreferrer">{wikipedia.description || wikipedia.excerpt || "Abrir artigo"} <ExternalLink /></a>}</div></article>}
+        {enabled.includes("tv") && <article className="panel public-data-card news-card"><span className="metric-icon"><Tv /></span><div><span>TV e streaming hoje</span><strong>{tv?.show ?? "Sem programação brasileira encontrada"}</strong>{tv && <a href={tv.url} target="_blank" rel="noreferrer">{tv.episode} · {tv.time ?? "horário variável"} · {tv.network} <ExternalLink /></a>}</div></article>}
+        {enabled.length === 0 && <article className="panel public-data-card empty-public-card"><span className="metric-icon"><Library /></span><div><span>Fontes opcionais ocultas</span><strong>Abra a Biblioteca</strong><small>Ative as fontes públicas que deseja exibir.</small></div></article>}
       </div>
-      <footer className="public-data-footer"><span>{status === "ready" ? "Dados atualizados" : status === "stale" ? "Usando cache local" : status === "error" ? "APIs temporariamente indisponíveis" : "Conectando às APIs"}</span><span><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo / CAMS</a> · Frankfurter · BrasilAPI · Hacker News</span></footer>
+      <footer className="public-data-footer"><span>{status === "ready" ? "Dados atualizados" : status === "stale" ? "Usando cache local" : status === "error" ? "APIs temporariamente indisponíveis" : "Conectando às APIs"}{summary.warnings.length ? ` · ${summary.warnings.length} fonte(s) com falha` : ""}</span><span>Cache local + Function sem estado · {summary.sources.length} provedores · <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> / CAMS / <a href="https://www.dwd.de/" target="_blank" rel="noreferrer">DWD</a></span></footer>
     </section>
   );
 }
@@ -531,14 +599,24 @@ export function LumaBoardApp() {
     null,
   );
   const [enabledPublicPlugins, setEnabledPublicPlugins] = useState<string[]>(DEFAULT_PUBLIC_PLUGINS);
-  const { weather, status: weatherStatus, refresh: refreshWeather } =
-    useLocalWeather();
+  const {
+    weather,
+    status: weatherStatus,
+    refresh: refreshWeather,
+    setManualLocation,
+  } = useLocalWeather();
   const localWidgets = useLocalWidgets();
   const {
     summary: publicSummary,
     status: publicDataStatus,
     refresh: refreshPublicData,
-  } = usePublicSummary(weather.latitude, weather.longitude);
+  } = usePublicSummary(
+    weather.latitude,
+    weather.longitude,
+    weather.city,
+    weather.stateCode,
+    weather.timezone,
+  );
   const [sharedConfig, setSharedConfig] = useState<SharedDisplayConfig | null>(null);
   const [automationState, setAutomationState] = useState(defaultAutomationState);
   const rainRule =
@@ -579,15 +657,14 @@ export function LumaBoardApp() {
     const readEnabled = () => {
       try {
         const stored: unknown = JSON.parse(window.localStorage.getItem("lumaboard-plugins") ?? "null");
-        if (!Array.isArray(stored)) return DEFAULT_PUBLIC_PLUGINS;
-        return stored.filter((item): item is string => typeof item === "string" && PUBLIC_PLUGIN_IDS.has(item));
+        return normalizeEnabledPublicPlugins(stored);
       } catch {
         return DEFAULT_PUBLIC_PLUGINS;
       }
     };
     const syncEnabled = (event?: Event) => {
       if (event instanceof CustomEvent && Array.isArray(event.detail)) {
-        setEnabledPublicPlugins(event.detail.filter((item): item is string => typeof item === "string" && PUBLIC_PLUGIN_IDS.has(item)));
+        setEnabledPublicPlugins(normalizeEnabledPublicPlugins(event.detail));
         return;
       }
       setEnabledPublicPlugins(readEnabled());
@@ -874,9 +951,15 @@ export function LumaBoardApp() {
             enabled={enabledPublicPlugins}
           />
 
+          <PublicExplorer
+            onUseLocation={setManualLocation}
+            onUseMachineLocation={() => refreshWeather(true)}
+            onToast={setToast}
+          />
+
           <section className="metric-grid" aria-label="Resumo operacional">
             <article className="metric panel"><span className="metric-icon"><Monitor /></span><div><strong>1</strong><span>display local</span><small>link compartilhável, sem pareamento</small></div></article>
-            <article className="metric panel"><span className="metric-icon"><CloudSun /></span><div><strong>{enabledPublicPlugins.length}</strong><span>fontes opcionais visíveis</span><small>4 disponíveis sem chave</small></div></article>
+            <article className="metric panel"><span className="metric-icon"><CloudSun /></span><div><strong>{enabledPublicPlugins.length}</strong><span>fontes opcionais visíveis</span><small>{DEFAULT_PUBLIC_PLUGINS.length} disponíveis sem chave</small></div></article>
             <article className="metric panel"><span className="metric-icon"><CircleGauge /></span><div><strong>0</strong><span>contas obrigatórias</span><small>nenhum token armazenado</small></div></article>
             <article className="insight panel"><span className="metric-icon"><Sparkles /></span><div><strong>Backend sem estado</strong><span>A Function apenas normaliza dados públicos; agenda, foco e preferências ficam no localStorage.</span></div></article>
           </section>

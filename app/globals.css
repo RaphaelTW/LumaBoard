@@ -445,6 +445,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .focus-fields label { color: var(--text-muted); font-size: 9px; display: grid; gap: 5px; }
 .focus-actions { display: flex; gap: 8px; margin-top: 14px; }
 .public-data-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 13px; }
+.public-data-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .public-data-card { padding: 16px; min-height: 138px; box-shadow: none; display: flex; gap: 12px; align-items: flex-start; }
 .public-data-card > div { min-width: 0; }
 .public-data-card span, .public-data-card strong, .public-data-card small { display: block; }
@@ -456,6 +457,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .public-data-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-muted); font-size: 9px; padding-top: 10px; }
 .public-data-footer a { color: inherit; }
 .empty-public-card { grid-column: 1 / -1; min-height: 100px; }
+.public-explorer-section { margin-top: 34px; }
+.public-explorer-panel { padding: 18px; box-shadow: none; }
+.explorer-tabs { display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.explorer-tabs button { min-height: 36px; border: 1px solid var(--border); background: var(--shell); color: var(--text-muted); border-radius: 7px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 10px; font-weight: 700; }
+.explorer-tabs button svg { width: 15px; }
+.explorer-tabs button.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.explorer-search { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 9px; margin: 16px 0; }
+.explorer-search label { min-height: 42px; border: 1px solid var(--border); background: var(--shell); border-radius: 7px; display: flex; align-items: center; gap: 9px; padding: 0 11px; }
+.explorer-search label svg { width: 17px; color: var(--text-muted); }
+.explorer-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; }
+.explorer-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.explorer-result-card { min-height: 132px; padding: 14px; border: 1px solid var(--border); background: var(--shell); border-radius: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 7px; overflow-wrap: anywhere; }
+.explorer-result-card > span { color: var(--text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.explorer-result-card strong { font-size: 15px; line-height: 1.3; }
+.explorer-result-card p { margin: 0; color: var(--text-muted); font-size: 10px; line-height: 1.45; }
+.explorer-result-card footer { margin-top: auto; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.explorer-result-card a { color: var(--accent); font-size: 9px; text-decoration: none; }
+.explorer-result-card .button { min-height: 32px; height: 32px; padding-inline: 10px; font-size: 9px; }
+.explorer-error, .explorer-empty { grid-column: 1 / -1; margin: 0; padding: 13px; border: 1px dashed var(--border); color: var(--text-muted); background: var(--shell); font-size: 10px; line-height: 1.5; }
+.explorer-error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 .connection-badge.local, .status-indicator.local { color: var(--accent); }
 .status-indicator.local { background: var(--success); }
 
@@ -469,6 +490,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .metric-grid { grid-template-columns: repeat(3, 1fr); }
   .public-data-grid { grid-template-columns: repeat(2, 1fr); }
   .event-form { grid-template-columns: 1fr 140px 100px; }
+  .explorer-results { grid-template-columns: 1fr; }
   .event-form .button { grid-column: 1 / -1; }
   .insight { grid-column: 1 / -1; }
   .studio-grid { grid-template-columns: 190px minmax(480px, 1fr); }
@@ -527,6 +549,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .heading-actions { flex-direction: column; }
   .status-column, .metric-grid, .plugins-grid, .choice-grid, .public-data-grid { grid-template-columns: 1fr; }
   .event-form { grid-template-columns: 1fr 1fr; }
+  .explorer-search { grid-template-columns: 1fr; }
+  .explorer-search .button { width: 100%; }
   .event-form input:first-child, .event-form .button { grid-column: 1 / -1; }
   .event-list > div { grid-template-columns: 80px 1fr auto; }
   .public-data-footer { align-items: flex-start; flex-direction: column; }

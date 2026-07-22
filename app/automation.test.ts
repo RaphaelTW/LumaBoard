@@ -13,6 +13,9 @@ const rule = defaultAutomationState.rules.find((item) => item.id === RAIN_RULE_I
 function weather(probabilities: Array<number | null>, updatedAt = "2026-07-21T12:00"): WeatherSnapshot {
   return {
     city: "São Paulo",
+    state: "São Paulo",
+    stateCode: "SP",
+    countryCode: "BR",
     latitude: -23.55,
     longitude: -46.63,
     temperature: 22,

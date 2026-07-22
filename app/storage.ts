@@ -15,6 +15,8 @@ export type StorageKey =
   | "lumaboard-agenda"
   | "lumaboard-focus"
   | "lumaboard-public-data-v1"
+  | "lumaboard-public-data-v2"
+  | "lumaboard-public-explorer-v1"
   | "lumaboard-refresh-minutes"
   | "lumaboard-rules"
   | "lumaboard-backup-meta";
@@ -36,6 +38,8 @@ const managedKeys: StorageKey[] = [
   "lumaboard-agenda",
   "lumaboard-focus",
   "lumaboard-public-data-v1",
+  "lumaboard-public-data-v2",
+  "lumaboard-public-explorer-v1",
   "lumaboard-refresh-minutes",
   "lumaboard-rules",
   "lumaboard-backup-meta",

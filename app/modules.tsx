@@ -21,8 +21,11 @@ import {
   GripVertical,
   Image as ImageIcon,
   LayoutGrid,
+  Landmark,
   Link,
+  MapPin,
   Monitor,
+  Mountain,
   MoonStar,
   MoreHorizontal,
   Plus,
@@ -33,10 +36,14 @@ import {
   Send,
   Settings2,
   ShieldCheck,
+  Soup,
   Sparkles,
+  Sunrise,
   TimerReset,
+  Tv,
   Trash2,
   Upload,
+  Waves,
   Zap,
 } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
@@ -52,6 +59,7 @@ import {
   writeAutomationState,
 } from "./automation";
 import type { WeatherSnapshot } from "./weather";
+import { DEFAULT_PUBLIC_PLUGIN_IDS, normalizeEnabledPublicPlugins } from "./public-data";
 import {
   exportLocalBackup,
   importLocalBackup,
@@ -99,7 +107,7 @@ const widgetOptions = [
   { id: "focus", name: "Foco", icon: Focus },
   { id: "text", name: "Texto", icon: BookOpen },
   { id: "image", name: "Imagem", icon: ImageIcon },
-  { id: "api", name: "API / JSON", icon: Code2 },
+  { id: "api", name: "Dados públicos", icon: Code2 },
 ];
 
 export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast: ToastHandler }) {
@@ -133,8 +141,11 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
   }, []);
 
   const saveDraft = () => {
+    const refreshMinutes = Number(interval);
     writeStoredValue("lumaboard-studio", { selected, layout, screenName, palette, interval });
-    onToast("Tela salva localmente e pronta para o link de display.");
+    writeStoredValue("lumaboard-refresh-minutes", refreshMinutes);
+    window.dispatchEvent(new CustomEvent("lumaboard:refresh-interval", { detail: refreshMinutes }));
+    onToast("Tela e intervalo salvos localmente; o link de display já pode ser copiado.");
   };
 
   const restoreDraft = () => {
@@ -163,12 +174,12 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
       <ModuleHeading
         eyebrow="ESTÚDIO VISUAL"
         title="Crie para qualquer tela."
-        description="Monte layouts por blocos, veja o resultado em 800 × 480 e publique sem escrever código."
+        description="Configure o rascunho local, veja a prévia em 800 × 480 e compartilhe pelo link de display."
         action={
           <>
             <button className="button secondary" onClick={restoreDraft}><RefreshCw /> Restaurar</button>
             <button className="button secondary" onClick={saveDraft}><Save /> Salvar rascunho</button>
-            <button className="button primary" onClick={() => onToast("Tela salva localmente. Copie o link na área Dispositivos.")}><Send /> Preparar display</button>
+            <button className="button primary" onClick={saveDraft}><Send /> Preparar display</button>
           </>
         }
       />
@@ -185,7 +196,7 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
           </div>
           <div className="tool-callout">
             <Sparkles /><strong>Dados dinâmicos</strong>
-            <span>Use variáveis, condições e qualquer endpoint JSON.</span>
+            <span>Combine agenda, clima e as fontes públicas já autorizadas no projeto.</span>
           </div>
         </aside>
 
@@ -236,8 +247,7 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
           <div className="selected-widget">
             <span className="eyebrow">BLOCO SELECIONADO</span>
             <strong>{widgetOptions.find((item) => item.id === selected)?.name}</strong>
-            <label><input type="checkbox" defaultChecked /> Ocultar quando não houver dados</label>
-            <label><input type="checkbox" defaultChecked /> Atualização adaptativa</label>
+            <small>O rascunho registra o bloco principal, o layout, a paleta e o intervalo usados neste navegador.</small>
           </div>
 
           <button className="button secondary full" onClick={() => onToast("Prévia atualizada com os dados mais recentes.")}><RefreshCw /> Atualizar prévia</button>
@@ -374,7 +384,7 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
             <h3>Simule a programação</h3>
             <p>Veja o que estará na tela sem alterar a agenda real.</p>
             <strong className="simulated-time mono">{String(hour).padStart(2, "0")}:00</strong>
-            <input aria-label="Horário simulado" type="range" min="0" max="23" value={hour} onChange={(event) => setHour(Number(event.target.value))} />
+            <input aria-label="Horário da prévia" type="range" min="0" max="23" value={hour} onChange={(event) => setHour(Number(event.target.value))} />
             <div className="time-labels mono"><span>00H</span><span>12H</span><span>23H</span></div>
             <div className="simulation-result"><Clock3 /><div><strong>{hour < 8 ? "Descanso" : hour < 18 ? "Trabalho" : "Casa"}</strong><span>{hour < 8 ? "Tela em pausa" : hour < 18 ? "Agenda de hoje" : "Clima e lembretes"}</span></div></div>
           </article>
@@ -501,18 +511,30 @@ export function DevicesModule({
 
 const libraryPlugins = [
   { id: "calendar", name: "Agenda local", category: "Produtividade", source: "localStorage", description: "Compromissos criados no navegador, sem Google, Outlook ou login.", icon: CalendarDays, core: true },
-  { id: "weather", name: "Clima local", category: "Informação", source: "Open-Meteo", description: "Condição atual, previsão e alertas de chuva sem chave de API.", icon: CloudSun, core: true },
+  { id: "weather", name: "Clima local", category: "Ambiente", source: "Open-Meteo", description: "Condição atual, previsão e alertas de chuva sem chave de API.", icon: CloudSun, core: true },
   { id: "focus", name: "Foco local", category: "Produtividade", source: "localStorage", description: "Pomodoro persistente, tarefa atual e duração configurável.", icon: Focus, core: true },
-  { id: "news", name: "Notícias de tecnologia", category: "Informação", source: "Hacker News", description: "Principais histórias da API oficial, normalizadas pela Function.", icon: Rss, core: false },
-  { id: "air", name: "Qualidade do ar", category: "Informação", source: "Open-Meteo", description: "AQI europeu e partículas PM2.5 para a localização do display.", icon: Activity, core: false },
-  { id: "rates", name: "Câmbio", category: "Informação", source: "Frankfurter", description: "Cotações de dólar e euro em reais, sem autenticação.", icon: Globe2, core: false },
+  { id: "news", name: "Notícias de tecnologia", category: "Conteúdo", source: "Hacker News", description: "Principais histórias da API oficial, normalizadas pela Function.", icon: Rss, core: false },
+  { id: "air", name: "Qualidade do ar", category: "Ambiente", source: "Open-Meteo / CAMS", description: "AQI europeu e partículas PM2.5 para a localização do display.", icon: Activity, core: false },
+  { id: "rates", name: "Câmbio", category: "Economia", source: "Frankfurter", description: "Cotações de dólar e euro em reais, sem autenticação.", icon: Globe2, core: false },
   { id: "holidays", name: "Feriados do Brasil", category: "Produtividade", source: "BrasilAPI", description: "Próximo feriado nacional usando uma API pública brasileira.", icon: CalendarDays, core: false },
+  { id: "economy", name: "Selic e IPCA", category: "Economia", source: "Banco Central do Brasil", description: "Taxa Selic anual e IPCA mensal pelas séries temporais oficiais.", icon: Landmark, core: false },
+  { id: "ibge", name: "Município e população", category: "Brasil", source: "IBGE", description: "Código oficial, região geográfica e população estimada do município.", icon: MapPin, core: false },
+  { id: "earthquakes", name: "Terremotos recentes", category: "Ambiente", source: "USGS", description: "Contagem mundial, maior magnitude e evento mais próximo nas últimas 24 horas.", icon: Activity, core: false },
+  { id: "elevation", name: "Altitude", category: "Ambiente", source: "Open-Meteo Elevation", description: "Elevação estimada das coordenadas atuais em metros.", icon: Mountain, core: false },
+  { id: "flood", name: "Rios e vazão", category: "Ambiente", source: "Open-Meteo Flood", description: "Vazão modelada do maior rio em uma área próxima às coordenadas.", icon: Activity, core: false },
+  { id: "marine", name: "Condição marítima", category: "Ambiente", source: "Open-Meteo Marine", description: "Ondas, temperatura da superfície do mar e corrente em regiões costeiras.", icon: Waves, core: false },
+  { id: "sun", name: "Sol e Lua", category: "Ambiente", source: "Sunrise-Sunset.org", description: "Nascer e pôr do sol, duração do dia, fase e iluminação da Lua.", icon: Sunrise, core: false },
+  { id: "books", name: "Livro em destaque", category: "Conteúdo", source: "Open Library", description: "Sugestão diária de livro e pesquisa sob demanda por título, autor ou assunto.", icon: BookOpen, core: false },
+  { id: "wikipedia", name: "Wikipédia", category: "Conteúdo", source: "Wikimedia", description: "Artigo rotativo e pesquisa de páginas em português.", icon: Globe2, core: false },
+  { id: "tv", name: "TV e séries", category: "Conteúdo", source: "TVmaze", description: "Programação brasileira disponível e pesquisa de séries.", icon: Tv, core: false },
+  { id: "location-search", name: "Pesquisa de cidades", category: "Ferramentas", source: "Open-Meteo + Nominatim", description: "Encontre uma cidade e aplique suas coordenadas ao painel sem criar conta.", icon: Search, core: true },
+  { id: "food-search", name: "Consulta de alimentos", category: "Ferramentas", source: "Open Food Facts", description: "Consulte produto, Nutri-Score e nutrientes usando o código de barras.", icon: Soup, core: true },
 ];
 
 export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
-  const [enabled, setEnabled] = useState<string[]>(["news", "air", "rates", "holidays"]);
+  const [enabled, setEnabled] = useState<string[]>([...DEFAULT_PUBLIC_PLUGIN_IDS]);
   const categories = ["Todos", ...Array.from(new Set(libraryPlugins.map((plugin) => plugin.category)))];
 
   useEffect(() => {
@@ -521,8 +543,7 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
     try {
       const saved: unknown = JSON.parse(raw);
       if (Array.isArray(saved)) {
-        const optionalIds = new Set(libraryPlugins.filter((plugin) => !plugin.core).map((plugin) => plugin.id));
-        queueMicrotask(() => setEnabled(saved.filter((item): item is string => typeof item === "string" && optionalIds.has(item))));
+        queueMicrotask(() => setEnabled(normalizeEnabledPublicPlugins(saved)));
       }
     } catch {
       // Keep defaults.

@@ -8,18 +8,25 @@ const WEATHER_KEY = "lumaboard-weather-v1";
 const LOCATION_TTL = 60 * 60 * 1000;
 const REFRESH_INTERVAL = 15 * 60 * 1000;
 
-type LocationSource = "gps" | "ip" | "saved" | "fallback";
+type LocationSource = "gps" | "ip" | "saved" | "fallback" | "manual";
 
-type StoredLocation = {
+export type StoredLocation = {
   latitude: number;
   longitude: number;
   city: string;
+  state: string;
+  stateCode: string;
+  countryCode: string;
+  timezone: string;
   source: LocationSource;
   savedAt: number;
 };
 
 export type WeatherSnapshot = {
   city: string;
+  state: string;
+  stateCode: string;
+  countryCode: string;
   latitude: number;
   longitude: number;
   temperature: number | null;
@@ -51,12 +58,19 @@ const fallbackLocation: StoredLocation = {
   latitude: -23.5505,
   longitude: -46.6333,
   city: "São Paulo",
+  state: "São Paulo",
+  stateCode: "SP",
+  countryCode: "BR",
+  timezone: "America/Sao_Paulo",
   source: "fallback",
   savedAt: 0,
 };
 
 export const initialWeather: WeatherSnapshot = {
   city: "Localizando…",
+  state: fallbackLocation.state,
+  stateCode: fallbackLocation.stateCode,
+  countryCode: fallbackLocation.countryCode,
   latitude: fallbackLocation.latitude,
   longitude: fallbackLocation.longitude,
   temperature: null,
@@ -87,7 +101,11 @@ export function isStoredLocation(value: unknown): value is StoredLocation {
     !isRecord(value) ||
     !Number.isFinite(value.latitude) ||
     !Number.isFinite(value.longitude) ||
-    typeof value.city !== "string"
+    typeof value.city !== "string" ||
+    typeof value.state !== "string" ||
+    typeof value.stateCode !== "string" ||
+    typeof value.countryCode !== "string" ||
+    typeof value.timezone !== "string"
   ) {
     return false;
   }
@@ -106,6 +124,9 @@ export function isWeatherSnapshot(value: unknown): value is WeatherSnapshot {
   return (
     isRecord(value) &&
     typeof value.city === "string" &&
+    typeof value.state === "string" &&
+    typeof value.stateCode === "string" &&
+    typeof value.countryCode === "string" &&
     Number.isFinite(value.latitude) &&
     Number.isFinite(value.longitude) &&
     typeof value.description === "string" &&
@@ -179,10 +200,25 @@ async function reverseLocation(
     throw new Error("Coordenadas inválidas");
   }
 
+  const subdivisionCode =
+    typeof payload.principalSubdivisionCode === "string"
+      ? payload.principalSubdivisionCode.replace(/^BR-/, "")
+      : "";
   return {
     latitude: resolvedLatitude,
     longitude: resolvedLongitude,
     city: locationName(payload),
+    state:
+      typeof payload.principalSubdivision === "string"
+        ? payload.principalSubdivision
+        : "",
+    stateCode: subdivisionCode,
+    countryCode:
+      typeof payload.countryCode === "string" ? payload.countryCode : "",
+    timezone:
+      typeof payload.timezone === "string"
+        ? payload.timezone
+        : Intl.DateTimeFormat().resolvedOptions().timeZone,
     source: latitude === undefined ? "ip" : "gps",
     savedAt: Date.now(),
   };
@@ -190,6 +226,7 @@ async function reverseLocation(
 
 async function resolveLocation(force: boolean): Promise<StoredLocation> {
   const stored = readStoredLocation();
+  if (!force && stored?.source === "manual") return stored;
   if (!force && stored && Date.now() - stored.savedAt < LOCATION_TTL) {
     return { ...stored, source: "saved" };
   }
@@ -293,6 +330,9 @@ async function fetchWeather(location: StoredLocation): Promise<WeatherSnapshot> 
 
   const snapshot: WeatherSnapshot = {
     city: location.city,
+    state: location.state,
+    stateCode: location.stateCode,
+    countryCode: location.countryCode,
     latitude: location.latitude,
     longitude: location.longitude,
     temperature: Number(current.temperature_2m),
@@ -305,7 +345,7 @@ async function fetchWeather(location: StoredLocation): Promise<WeatherSnapshot> 
     timezone:
       typeof payload.timezone === "string"
         ? payload.timezone
-        : Intl.DateTimeFormat().resolvedOptions().timeZone,
+        : location.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     updatedAt:
       typeof current.time === "string"
         ? current.time
@@ -330,6 +370,14 @@ export function useLocalWeather() {
   const [status, setStatus] = useState<WeatherStatus>("loading");
   const running = useRef(false);
 
+  const loadLocation = useCallback(async (location: StoredLocation) => {
+    const snapshot = await fetchWeather(location);
+    writeStoredValue(LOCATION_KEY, location);
+    writeStoredValue(WEATHER_KEY, snapshot);
+    setWeather(snapshot);
+    setStatus("ready");
+  }, []);
+
   const refresh = useCallback(async (forceLocation = false) => {
     if (running.current) return;
     running.current = true;
@@ -337,11 +385,7 @@ export function useLocalWeather() {
 
     try {
       const location = await resolveLocation(forceLocation);
-      const snapshot = await fetchWeather(location);
-      writeStoredValue(LOCATION_KEY, location);
-      writeStoredValue(WEATHER_KEY, snapshot);
-      setWeather(snapshot);
-      setStatus("ready");
+      await loadLocation(location);
     } catch {
       const cached = readStoredWeather();
       if (cached) {
@@ -360,7 +404,43 @@ export function useLocalWeather() {
     } finally {
       running.current = false;
     }
-  }, []);
+  }, [loadLocation]);
+
+  const setManualLocation = useCallback(async (input: {
+    latitude: number;
+    longitude: number;
+    city: string;
+    state?: string;
+    stateCode?: string;
+    countryCode?: string;
+    timezone?: string;
+  }) => {
+    if (running.current) return false;
+    const latitude = Number(input.latitude);
+    const longitude = Number(input.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+    running.current = true;
+    setStatus("loading");
+    try {
+      await loadLocation({
+        latitude,
+        longitude,
+        city: input.city.trim() || "Local selecionado",
+        state: input.state?.trim() ?? "",
+        stateCode: input.stateCode?.trim().replace(/^BR-/, "").toUpperCase() ?? "",
+        countryCode: input.countryCode?.trim().toUpperCase() ?? "BR",
+        timezone: input.timezone?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        source: "manual",
+        savedAt: Date.now(),
+      });
+      return true;
+    } catch {
+      setStatus("error");
+      return false;
+    } finally {
+      running.current = false;
+    }
+  }, [loadLocation]);
 
   useEffect(() => {
     const cached = readStoredWeather();
@@ -375,5 +455,5 @@ export function useLocalWeather() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  return { weather, status, refresh };
+  return { weather, status, refresh, setManualLocation };
 }
