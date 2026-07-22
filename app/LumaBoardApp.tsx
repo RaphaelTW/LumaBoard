@@ -37,6 +37,14 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  RAIN_RULE_ID,
+  defaultAutomationState,
+  evaluateRainRule,
+  readAutomationState,
+  recordRainAlert,
+  type LocalAutomationRule,
+} from "./automation";
+import {
   AutomationModule,
   DevicesModule,
   LibraryModule,
@@ -294,6 +302,14 @@ export function LumaBoardApp() {
   );
   const { weather, status: weatherStatus, refresh: refreshWeather } =
     useLocalWeather();
+  const [automationState, setAutomationState] = useState(defaultAutomationState);
+  const rainRule =
+    automationState.rules.find((rule) => rule.id === RAIN_RULE_ID) ??
+    defaultAutomationState.rules[0];
+  const rainEvaluation = useMemo(
+    () => evaluateRainRule(rainRule, weather, now),
+    [rainRule, weather, now],
+  );
 
   const calendar = useMemo(
     () => calendarModel(now, weather.timezone),
@@ -308,6 +324,7 @@ export function LumaBoardApp() {
   useEffect(() => {
     const saved = window.localStorage.getItem("lumaboard-theme");
     if (saved === "night") queueMicrotask(() => setTheme("night"));
+    queueMicrotask(() => setAutomationState(readAutomationState()));
   }, []);
 
   useEffect(() => {
@@ -324,13 +341,58 @@ export function LumaBoardApp() {
   const refreshDevice = () => {
     if (refreshing) return;
     setRefreshing(true);
-    setToast("Sincronizando a tela da Sala…");
+    setToast("Simulação local — conexão real requer backend.");
     void refreshWeather();
     window.setTimeout(() => {
       setRefreshing(false);
-      setToast("Tela sincronizada com sucesso.");
+      setToast("Prévia local atualizada.");
     }, 760);
   };
+
+  const updateRainRule = (nextRule: LocalAutomationRule) => {
+    setAutomationState((current) => ({
+      ...current,
+      rules: current.rules.map((rule) => (rule.id === nextRule.id ? nextRule : rule)),
+    }));
+  };
+
+  const clearRainHistory = () => {
+    const next = {
+      ...readAutomationState(),
+      history: [],
+    };
+    window.localStorage.setItem("lumaboard-rules", JSON.stringify(next));
+    setAutomationState(next);
+    setToast("Histórico de alertas limpo.");
+  };
+
+  useEffect(() => {
+    const state = readAutomationState();
+    const rule = state.rules.find((item) => item.id === RAIN_RULE_ID);
+    if (!rule) return;
+    const evaluation = evaluateRainRule(rule, weather, new Date());
+    const evaluated = {
+      ...state,
+      rules: state.rules.map((item) =>
+        item.id === RAIN_RULE_ID
+          ? { ...item, lastEvaluatedAt: new Date().toISOString() }
+          : item,
+      ),
+    };
+    const next = recordRainAlert(evaluated, rule, evaluation);
+    window.localStorage.setItem("lumaboard-rules", JSON.stringify(next));
+    queueMicrotask(() => setAutomationState(next));
+    if (!evaluation.shouldAlert || evaluation.maxProbability === null) return;
+    queueMicrotask(() => {
+      setToast(`Chuva provável: ${evaluation.maxProbability}% nas próximas 6h.`);
+      setActiveView("automation");
+    });
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("LumaBoard: alerta de chuva", {
+        body: `Probabilidade de ${evaluation.maxProbability}% perto de ${weather.city}.`,
+      });
+    }
+  }, [weather, weatherStatus]);
 
   const toggleTheme = () => {
     const next = theme === "paper" ? "night" : "paper";
@@ -543,7 +605,16 @@ export function LumaBoardApp() {
             />
           )}
           {activeView === "library" && <LibraryModule onToast={setToast} />}
-          {activeView === "automation" && <AutomationModule onToast={setToast} />}
+          {activeView === "automation" && (
+            <AutomationModule
+              onToast={setToast}
+              weather={weather}
+              weatherStatus={weatherStatus}
+              rainEvaluation={rainEvaluation}
+              onUpdateRainRule={updateRainRule}
+              onClearRainHistory={clearRainHistory}
+            />
+          )}
         </main>
       </div>
 

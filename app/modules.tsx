@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   BatteryMedium,
+  Bell,
   BookOpen,
   CalendarDays,
   Check,
@@ -46,6 +47,24 @@ import {
 } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  RAIN_RULE_ID,
+  type AutomationState,
+  type LocalAutomationRule,
+  type RainEvaluation,
+  clampRainThreshold,
+  defaultAutomationState,
+  readAutomationState,
+  writeAutomationState,
+} from "./automation";
+import type { WeatherSnapshot } from "./weather";
+import {
+  exportLocalBackup,
+  importLocalBackup,
+  migrateBackup,
+  safeParseJSON,
+  writeStoredValue,
+} from "./storage";
 
 export type View =
   | "overview"
@@ -120,11 +139,29 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
   }, []);
 
   const saveDraft = () => {
-    window.localStorage.setItem(
-      "lumaboard-studio",
-      JSON.stringify({ selected, layout, screenName, palette, interval }),
-    );
+    writeStoredValue("lumaboard-studio", { selected, layout, screenName, palette, interval });
     onToast("Tela salva localmente e pronta para sincronizar.");
+  };
+
+  const restoreDraft = () => {
+    const saved = safeParseJSON(window.localStorage.getItem("lumaboard-studio"));
+    if (!saved || typeof saved !== "object") {
+      onToast("Nenhum rascunho local encontrado.");
+      return;
+    }
+    const draft = saved as {
+      selected?: string;
+      layout?: string;
+      screenName?: string;
+      palette?: string;
+      interval?: string;
+    };
+    if (draft.selected) setSelected(draft.selected);
+    if (draft.layout) setLayout(draft.layout);
+    if (draft.screenName) setScreenName(draft.screenName);
+    if (draft.palette) setPalette(draft.palette);
+    if (draft.interval) setInterval(draft.interval);
+    onToast("Rascunho local restaurado.");
   };
 
   return (
@@ -135,8 +172,9 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
         description="Monte layouts por blocos, veja o resultado em 800 × 480 e publique sem escrever código."
         action={
           <>
+            <button className="button secondary" onClick={restoreDraft}><RefreshCw /> Restaurar</button>
             <button className="button secondary" onClick={saveDraft}><Save /> Salvar rascunho</button>
-            <button className="button primary" onClick={() => onToast("Tela enviada para Sala. Atualização em andamento…")}><Send /> Enviar para Sala</button>
+            <button className="button primary" onClick={() => onToast("Simulação local — conexão real requer backend.")}><Send /> Enviar para Sala</button>
           </>
         }
       />
@@ -236,6 +274,7 @@ const playlistIcons = { calendar: CalendarDays, weather: CloudSun, focus: Focus,
 export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city: string }) {
   const [items, setItems] = useState(() => createDefaultPlaylist(city));
   const [hour, setHour] = useState(14);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   useEffect(() => {
     const raw = window.localStorage.getItem("lumaboard-playlist");
@@ -256,7 +295,7 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
 
   const persist = (next: PlaylistItem[]) => {
     setItems(next);
-    window.localStorage.setItem("lumaboard-playlist", JSON.stringify(next));
+    writeStoredValue("lumaboard-playlist", next);
   };
 
   const move = (index: number, direction: -1 | 1) => {
@@ -268,6 +307,18 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
   };
 
   const activeCount = items.filter((item) => item.enabled).length;
+  const rename = (id: number, name: string) => {
+    persist(items.map((item) => item.id === id ? { ...item, name } : item));
+  };
+  const duplicate = (item: PlaylistItem) => {
+    persist([...items, { ...item, id: Date.now(), name: `${item.name} cópia` }]);
+    onToast("Tela duplicada localmente.");
+  };
+  const remove = (item: PlaylistItem) => {
+    if (!window.confirm(`Excluir "${item.name}" desta playlist?`)) return;
+    persist(items.filter((current) => current.id !== item.id));
+    onToast("Tela excluída localmente.");
+  };
 
   return (
     <section className="module-view">
@@ -275,7 +326,7 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
         eyebrow="PROGRAMAÇÃO"
         title="Playlists inteligentes."
         description="Defina a ordem, a duração e as regras de exibição. O LumaBoard evita renderizações quando os dados não mudam."
-        action={<button className="button primary" onClick={() => onToast("Nova tela adicionada à fila.")}><Plus /> Adicionar tela</button>}
+        action={<button className="button primary" onClick={() => persist([...items, { id: Date.now(), name: "Nova tela", detail: "Widgets locais", duration: "15", enabled: true, icon: "focus" }])}><Plus /> Adicionar tela</button>}
       />
 
       <div className="playlist-layout">
@@ -291,7 +342,19 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
                 <article className={!item.enabled ? "disabled" : ""} key={item.id}>
                   <GripVertical className="drag-handle" />
                   <span className="playlist-icon"><Icon /></span>
-                  <div className="playlist-copy"><strong>{item.name}</strong><span>{item.detail}</span></div>
+                  <div className="playlist-copy">
+                    {editingId === item.id ? (
+                      <input
+                        aria-label={`Renomear ${item.name}`}
+                        value={item.name}
+                        onBlur={() => setEditingId(null)}
+                        onChange={(event) => rename(item.id, event.target.value)}
+                      />
+                    ) : (
+                      <button className="text-button" onClick={() => setEditingId(item.id)}><strong>{item.name}</strong></button>
+                    )}
+                    <span>{item.detail}</span>
+                  </div>
                   <label className="duration-field">Duração
                     <select value={item.duration} onChange={(event) => persist(items.map((current) => current.id === item.id ? { ...current, duration: event.target.value } : current))}>
                       <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="25">25 min</option><option value="30">30 min</option><option value="60">60 min</option>
@@ -302,6 +365,8 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
                     <button className="icon-button compact" aria-label={`Mover ${item.name} para baixo`} disabled={index === items.length - 1} onClick={() => move(index, 1)}><ArrowDown /></button>
                   </div>
                   <label className="switch"><input type="checkbox" checked={item.enabled} onChange={(event) => persist(items.map((current) => current.id === item.id ? { ...current, enabled: event.target.checked } : current))} /><span /></label>
+                  <button className="icon-button compact" aria-label={`Duplicar ${item.name}`} onClick={() => duplicate(item)}><Copy /></button>
+                  <button className="icon-button compact" aria-label={`Excluir ${item.name}`} onClick={() => remove(item)}><Trash2 /></button>
                 </article>
               );
             })}
@@ -326,11 +391,23 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
   );
 }
 
-const devices = [
-  { id: "sala", name: "Sala", model: "ESP32 · 800 × 480", battery: 82, status: "online", signal: -54, sync: "há 2 min" },
-  { id: "cozinha", name: "Cozinha", model: "Kindle · 1072 × 1448", battery: 61, status: "online", signal: -67, sync: "há 8 min" },
-  { id: "escritorio", name: "Escritório", model: "Navegador · 1280 × 800", battery: 100, status: "online", signal: -42, sync: "agora" },
-  { id: "quarto", name: "Quarto", model: "Kobo · 758 × 1024", battery: 14, status: "offline", signal: 0, sync: "ontem" },
+type LocalDevice = {
+  id: string;
+  name: string;
+  model: string;
+  resolution: string;
+  interval: number;
+  battery: number;
+  status: "online" | "offline";
+  signal: number;
+  sync: string;
+};
+
+const devices: LocalDevice[] = [
+  { id: "sala", name: "Sala", model: "ESP32", resolution: "800 × 480", interval: 15, battery: 82, status: "online", signal: -54, sync: "há 2 min" },
+  { id: "cozinha", name: "Cozinha", model: "Kindle", resolution: "1072 × 1448", interval: 30, battery: 61, status: "online", signal: -67, sync: "há 8 min" },
+  { id: "escritorio", name: "Escritório", model: "Navegador", resolution: "1280 × 800", interval: 15, battery: 100, status: "online", signal: -42, sync: "agora" },
+  { id: "quarto", name: "Quarto", model: "Kobo", resolution: "758 × 1024", interval: 60, battery: 14, status: "offline", signal: 0, sync: "ontem" },
 ];
 
 export function DevicesModule({
@@ -344,10 +421,27 @@ export function DevicesModule({
   onPair: () => void;
   onDisplay: () => void;
 }) {
+  const [localDevices, setLocalDevices] = useState<LocalDevice[]>(devices);
   const [selectedId, setSelectedId] = useState("sala");
   const [refreshMinutes, setRefreshMinutes] = useState(15);
-  const selected = devices.find((device) => device.id === selectedId) ?? devices[0];
+  const selected = localDevices.find((device) => device.id === selectedId) ?? localDevices[0];
   const projectedDays = Math.max(9, Math.round((selected.battery / 100) * (refreshMinutes * 4.8)));
+
+  useEffect(() => {
+    const saved = safeParseJSON(window.localStorage.getItem("lumaboard-devices"));
+    if (Array.isArray(saved) && saved.length > 0) {
+      queueMicrotask(() => setLocalDevices(saved as LocalDevice[]));
+    }
+  }, []);
+
+  const persistDevices = (next: LocalDevice[]) => {
+    setLocalDevices(next);
+    writeStoredValue("lumaboard-devices", next);
+  };
+
+  const updateSelected = (patch: Partial<LocalDevice>) => {
+    persistDevices(localDevices.map((device) => device.id === selected.id ? { ...device, ...patch } : device));
+  };
 
   return (
     <section className="module-view">
@@ -355,15 +449,15 @@ export function DevicesModule({
         eyebrow="FROTA BYOD"
         title="Seus displays, uma central."
         description="Conecte hardware próprio, e-readers ou qualquer navegador. Sem taxa por dispositivo."
-        action={<button className="button primary" onClick={onPair}><Plus /> Conectar dispositivo</button>}
+        action={<button className="button primary" onClick={() => { const id = `device-${Date.now()}`; persistDevices([...localDevices, { id, name: "Novo display", model: "Navegador", resolution: "800 × 480", interval: 15, battery: 100, status: "online", signal: -50, sync: "local" }]); setSelectedId(id); onPair(); }}><Plus /> Conectar dispositivo</button>}
       />
       <div className="devices-layout">
         <aside className="device-list panel">
-          <header><strong>Dispositivos</strong><span>{devices.filter((device) => device.status === "online").length} online</span></header>
-          {devices.map((device) => (
+          <header><strong>Dispositivos</strong><span>{localDevices.filter((device) => device.status === "online").length} online</span></header>
+          {localDevices.map((device) => (
             <button key={device.id} className={selectedId === device.id ? "active" : ""} onClick={() => setSelectedId(device.id)}>
               <span className="device-list-icon"><Monitor /></span>
-              <span><strong>{device.name}</strong><small>{device.model}</small></span>
+              <span><strong>{device.name}</strong><small>{device.model} · {device.resolution}</small></span>
               <i className={`status-indicator ${device.status}`} />
             </button>
           ))}
@@ -371,9 +465,9 @@ export function DevicesModule({
 
         <div className="device-detail">
           <article className="panel device-hero">
-            <header><div><span className="eyebrow">DISPOSITIVO SELECIONADO</span><h2>{selected.name}</h2><p>{selected.model}</p></div><div className={`connection-badge ${selected.status}`}><Wifi /> {selected.status}</div></header>
+            <header><div><span className="eyebrow">DISPOSITIVO SELECIONADO</span><h2>{selected.name}</h2><p>{selected.model} · {selected.resolution}</p></div><div className={`connection-badge ${selected.status}`}><Wifi /> {selected.status}</div></header>
             <div className="device-preview">{preview}</div>
-            <footer><span><RefreshCw /> Sincronizado {selected.sync}</span><div><button className="button secondary" onClick={onDisplay}><Eye /> Abrir display</button><button className="button primary" onClick={() => onToast(`${selected.name} recebeu uma atualização manual.`)}><Send /> Enviar agora</button></div></footer>
+            <footer><span><RefreshCw /> Estado local {selected.sync}</span><div><button className="button secondary" onClick={onDisplay}><Eye /> Abrir display</button><button className="button primary" onClick={() => onToast("Simulação local — conexão real requer backend.")}><Send /> Enviar agora</button></div></footer>
           </article>
 
           <div className="device-stat-grid">
@@ -391,6 +485,11 @@ export function DevicesModule({
           <div className="time-labels mono"><span>5 MIN</span><span>60 MIN</span></div>
           <div className="energy-tip"><Zap /><span>O modo adaptativo ignora atualizações idênticas e pode ampliar a autonomia em até 22%.</span></div>
           <button className="button secondary full" onClick={() => onToast(`Intervalo de ${refreshMinutes} minutos aplicado a ${selected.name}.`)}><Save /> Aplicar configuração</button>
+          <div className="inspector-divider" />
+          <label className="control-label" htmlFor="device-name">Nome</label><input id="device-name" value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} />
+          <label className="control-label" htmlFor="device-model">Modelo</label><input id="device-model" value={selected.model} onChange={(event) => updateSelected({ model: event.target.value })} />
+          <label className="control-label" htmlFor="device-resolution">Resolução</label><input id="device-resolution" value={selected.resolution} onChange={(event) => updateSelected({ resolution: event.target.value })} />
+          <button className="button secondary full" onClick={() => { if (localDevices.length <= 1) return; persistDevices(localDevices.filter((device) => device.id !== selected.id)); setSelectedId(localDevices[0].id === selected.id ? localDevices[1].id : localDevices[0].id); }}><Trash2 /> Excluir localmente</button>
         </aside>
       </div>
     </section>
@@ -412,6 +511,7 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
   const [enabled, setEnabled] = useState<string[]>(["calendar", "weather", "focus"]);
+  const [pluginConfigs, setPluginConfigs] = useState<Record<string, { name: string; refresh: string; url: string }>>({});
   const [configuring, setConfiguring] = useState<(typeof libraryPlugins)[number] | null>(null);
   const categories = ["Todos", ...Array.from(new Set(libraryPlugins.map((plugin) => plugin.category)))];
 
@@ -426,6 +526,17 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
     }
   }, []);
 
+  useEffect(() => {
+    const saved = safeParseJSON(window.localStorage.getItem("lumaboard-plugins-config"));
+    if (saved && typeof saved === "object") {
+      queueMicrotask(() =>
+        setPluginConfigs(
+          saved as Record<string, { name: string; refresh: string; url: string }>,
+        ),
+      );
+    }
+  }, []);
+
   const filtered = useMemo(() => libraryPlugins.filter((plugin) => {
     const matchesQuery = `${plugin.name} ${plugin.description}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"));
     return matchesQuery && (category === "Todos" || plugin.category === category);
@@ -436,6 +547,27 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
     setEnabled(next);
     window.localStorage.setItem("lumaboard-plugins", JSON.stringify(next));
     onToast(enabled.includes(id) ? "Plugin removido da sua biblioteca." : "Plugin instalado localmente.");
+  };
+
+  const savePluginConfig = (pluginId: string) => {
+    const name = (document.getElementById("instance-name") as HTMLInputElement | null)?.value ?? "";
+    const refresh = (document.getElementById("plugin-refresh") as HTMLSelectElement | null)?.value ?? "15";
+    const url = (document.getElementById("plugin-url") as HTMLInputElement | null)?.value.trim() ?? "";
+    if (url) {
+      try {
+        const parsed = new URL(url);
+        if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("unsafe");
+      } catch {
+        onToast("URL bloqueada. Use apenas http ou https.");
+        return;
+      }
+    }
+    const next = { ...pluginConfigs, [pluginId]: { name, refresh, url } };
+    setPluginConfigs(next);
+    writeStoredValue("lumaboard-plugins", enabled);
+    window.localStorage.setItem("lumaboard-plugins-config", JSON.stringify(next));
+    setConfiguring(null);
+    onToast("Configuração local salva.");
   };
 
   return (
@@ -469,11 +601,11 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
           <aside className="plugin-drawer panel">
             <header><div><span className="eyebrow">CONFIGURAÇÃO</span><h2>{configuring.name}</h2></div><button className="icon-button" onClick={() => setConfiguring(null)} aria-label="Fechar configuração">×</button></header>
             <div className="drawer-icon"><configuring.icon /></div>
-            <label className="control-label" htmlFor="instance-name">Nome da instância</label><input id="instance-name" defaultValue={configuring.name} />
-            <label className="control-label" htmlFor="plugin-refresh">Atualização mínima</label><select id="plugin-refresh" defaultValue="15"><option value="5">5 minutos</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60">1 hora</option></select>
-            <label className="control-label" htmlFor="plugin-url">Endpoint opcional</label><div className="input-with-icon"><Link /><input id="plugin-url" placeholder="https://api.exemplo.com/dados" /></div>
-            <div className="privacy-note"><ShieldCheck /><span>Credenciais criptografadas localmente. Nenhum dado é compartilhado com a LumaBoard.</span></div>
-            <button className="button primary full" onClick={() => { setConfiguring(null); onToast("Configuração salva com segurança."); }}><Save /> Salvar configuração</button>
+            <label className="control-label" htmlFor="instance-name">Nome da instância</label><input id="instance-name" defaultValue={pluginConfigs[configuring.id]?.name ?? configuring.name} />
+            <label className="control-label" htmlFor="plugin-refresh">Atualização mínima</label><select id="plugin-refresh" defaultValue={pluginConfigs[configuring.id]?.refresh ?? "15"}><option value="5">5 minutos</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60">1 hora</option></select>
+            <label className="control-label" htmlFor="plugin-url">Endpoint opcional</label><div className="input-with-icon"><Link /><input id="plugin-url" defaultValue={pluginConfigs[configuring.id]?.url ?? ""} placeholder="https://api.exemplo.com/dados" /></div>
+            <div className="privacy-note"><ShieldCheck /><span>Não armazene tokens, senhas ou segredos. Plugins com OAuth, proxy ou segredo requerem backend.</span></div>
+            <button className="button primary full" onClick={() => savePluginConfig(configuring.id)}><Save /> Salvar configuração</button>
           </aside>
         )}
       </div>
@@ -481,49 +613,55 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
   );
 }
 
-type Rule = { id: number; name: string; trigger: string; action: string; enabled: boolean };
-const defaultRules: Rule[] = [
-  { id: 1, name: "Modo trabalho", trigger: "Seg–Sex às 08:00", action: "Ativar playlist Trabalho", enabled: true },
-  { id: 2, name: "Economia noturna", trigger: "Todos os dias às 22:30", action: "Suspender atualizações", enabled: true },
-  { id: 3, name: "Alerta de chuva", trigger: "Chuva > 60%", action: "Priorizar tela Clima", enabled: true },
-];
-
-export function AutomationModule({ onToast }: { onToast: ToastHandler }) {
-  const [rules, setRules] = useState(defaultRules);
+export function AutomationModule({
+  onToast,
+  weather,
+  weatherStatus,
+  rainEvaluation,
+  onUpdateRainRule,
+  onClearRainHistory,
+}: {
+  onToast: ToastHandler;
+  weather: WeatherSnapshot;
+  weatherStatus: "loading" | "ready" | "stale" | "error";
+  rainEvaluation: RainEvaluation;
+  onUpdateRainRule: (rule: LocalAutomationRule) => void;
+  onClearRainHistory: () => void;
+}) {
+  const [state, setState] = useState<AutomationState>(defaultAutomationState);
   const [showForm, setShowForm] = useState(false);
   const [ruleName, setRuleName] = useState("");
   const [localOnly, setLocalOnly] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+
+  const rules = state.rules;
+  const rainRule = rules.find((rule) => rule.id === RAIN_RULE_ID) ?? defaultAutomationState.rules[0];
 
   useEffect(() => {
-    const raw = window.localStorage.getItem("lumaboard-rules");
-    if (!raw) return;
-    try {
-      const saved = JSON.parse(raw) as Rule[];
-      if (Array.isArray(saved)) queueMicrotask(() => setRules(saved));
-    } catch {
-      // Keep defaults.
-    }
+    const loaded = readAutomationState();
+    queueMicrotask(() => setState(loaded));
+    queueMicrotask(() =>
+      setNotificationPermission(
+        "Notification" in window ? Notification.permission : "unsupported",
+      ),
+    );
   }, []);
 
-  const persistRules = (next: Rule[]) => {
-    setRules(next);
-    window.localStorage.setItem("lumaboard-rules", JSON.stringify(next));
+  const persistState = (next: AutomationState) => {
+    setState(next);
+    writeAutomationState(next);
+    const nextRainRule = next.rules.find((rule) => rule.id === RAIN_RULE_ID);
+    if (nextRainRule) onUpdateRainRule(nextRainRule);
   };
 
   const addRule = () => {
     if (!ruleName.trim()) return;
-    persistRules([...rules, { id: Date.now(), name: ruleName.trim(), trigger: "Quando os dados mudarem", action: "Atualizar dispositivo Sala", enabled: true }]);
+    persistState({ ...state, rules: [...rules, { id: `local-${Date.now()}`, name: ruleName.trim(), trigger: "Quando os dados mudarem", action: "Atualizar playlist local", enabled: true, cooldownMinutes: 60, lastEvaluatedAt: null, lastExecutedAt: null, lastSignature: null, config: { threshold: 60 } }] });
     setRuleName(""); setShowForm(false); onToast("Automação criada e ativada.");
   };
 
   const exportBackup = () => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      studio: window.localStorage.getItem("lumaboard-studio"),
-      playlist: window.localStorage.getItem("lumaboard-playlist"),
-      plugins: window.localStorage.getItem("lumaboard-plugins"),
-      rules,
-    };
+    const payload = exportLocalBackup();
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -537,11 +675,10 @@ export function AutomationModule({ onToast }: { onToast: ToastHandler }) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const payload = JSON.parse(String(reader.result)) as Record<string, unknown>;
-        if (typeof payload.studio === "string") window.localStorage.setItem("lumaboard-studio", payload.studio);
-        if (typeof payload.playlist === "string") window.localStorage.setItem("lumaboard-playlist", payload.playlist);
-        if (typeof payload.plugins === "string") window.localStorage.setItem("lumaboard-plugins", payload.plugins);
-        if (Array.isArray(payload.rules)) persistRules(payload.rules as Rule[]);
+        const migrated = migrateBackup(JSON.parse(String(reader.result)));
+        if (!migrated) throw new Error("invalid");
+        importLocalBackup(migrated);
+        setState(readAutomationState());
         onToast("Backup restaurado. Recarregue para aplicar todas as preferências.");
       } catch { onToast("Arquivo de backup inválido."); }
     };
@@ -550,7 +687,24 @@ export function AutomationModule({ onToast }: { onToast: ToastHandler }) {
 
   return (
     <section className="module-view">
-      <ModuleHeading eyebrow="REGRAS E PRIVACIDADE" title="Automação local-first." description="Crie comportamentos por horário, dados ou bateria. Tudo funciona no navegador ou no seu servidor." action={<button className="button primary" onClick={() => setShowForm(true)}><Plus /> Nova automação</button>} />
+      <ModuleHeading eyebrow="REGRAS E PRIVACIDADE" title="Automação local-first." description="Crie comportamentos por horário, dados ou bateria. Sem backend, a avaliação roda somente enquanto a página ou PWA estiver aberta." action={<button className="button primary" onClick={() => setShowForm(true)}><Plus /> Nova automação</button>} />
+
+      <article className={`panel rain-alert-panel ${rainEvaluation.status === "rain-likely" ? "highlight" : ""}`}>
+        <header><div><span className="eyebrow">ALERTA DE CHUVA</span><h3>{rainEvaluation.status === "rain-likely" ? "Chuva provável" : rainEvaluation.status === "no-risk" ? "Sem risco" : rainEvaluation.status === "cached" ? "Dados em cache" : rainEvaluation.status === "disabled" ? "Regra desativada" : "Monitorando"}</h3></div><span className="status-chip">{weatherStatus === "ready" ? "AO VIVO" : weatherStatus === "stale" ? "CACHE" : "INDISPONÍVEL"}</span></header>
+        <div className="rain-grid">
+          <div><strong>{rainEvaluation.currentProbability ?? "--"}%</strong><span>probabilidade atual</span></div>
+          <div><strong>{rainEvaluation.maxProbability ?? "--"}%</strong><span>maior nas próximas 6h</span></div>
+          <div><strong>{rainEvaluation.likelyAt ? new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(rainEvaluation.likelyAt)) : "--"}</strong><span>horário provável</span></div>
+        </div>
+        <label className="control-label" htmlFor="rain-threshold">Limite: {rainRule.config.threshold}%</label>
+        <input id="rain-threshold" type="range" min="10" max="100" value={rainRule.config.threshold} onChange={(event) => persistState({ ...state, rules: rules.map((rule) => rule.id === RAIN_RULE_ID ? { ...rule, trigger: `Chuva > ${event.target.value}%`, config: { threshold: clampRainThreshold(event.target.value) } } : rule) })} />
+        <div className="rain-actions">
+          <button className="button secondary" onClick={async () => { if (!("Notification" in window)) return; const permission = await Notification.requestPermission(); setNotificationPermission(permission); onToast(permission === "granted" ? "Notificações ativadas." : "Permissão de notificação negada."); }}><Bell /> Ativar notificações</button>
+          <button className="button secondary" onClick={onClearRainHistory}><Trash2 /> Limpar histórico</button>
+          <span>{notificationPermission === "granted" ? "Notificações permitidas" : notificationPermission === "denied" ? "Notificações negadas" : "Alertas internos ativos"}</span>
+        </div>
+        <small>{weather.city} · {weather.description} · {rainEvaluation.reason}</small>
+      </article>
 
       {showForm && <div className="inline-form panel"><div><span className="eyebrow">NOVA REGRA</span><h3>Automação rápida</h3></div><input aria-label="Nome da automação" placeholder="Ex.: Lembrete para sair" value={ruleName} onChange={(event) => setRuleName(event.target.value)} /><select aria-label="Gatilho" defaultValue="change"><option value="change">Quando os dados mudarem</option><option value="time">Em um horário</option><option value="battery">Bateria abaixo de 20%</option></select><button className="button primary" onClick={addRule}>Criar</button><button className="icon-button" aria-label="Cancelar" onClick={() => setShowForm(false)}>×</button></div>}
 
@@ -558,7 +712,7 @@ export function AutomationModule({ onToast }: { onToast: ToastHandler }) {
         <article className="rules-panel panel">
           <header className="list-header"><div><strong>Regras ativas</strong><span>{rules.filter((rule) => rule.enabled).length} de {rules.length} executando</span></div><button className="icon-button compact" aria-label="Atualizar regras"><RefreshCw /></button></header>
           <div className="rules-list">
-            {rules.map((rule) => <article key={rule.id}><span className="rule-icon"><Zap /></span><div><strong>{rule.name}</strong><span><AlarmClock /> {rule.trigger}</span><small><ChevronRight /> {rule.action}</small></div><label className="switch"><input type="checkbox" checked={rule.enabled} onChange={(event) => persistRules(rules.map((current) => current.id === rule.id ? { ...current, enabled: event.target.checked } : current))} /><span /></label><button className="icon-button compact" aria-label={`Excluir ${rule.name}`} onClick={() => persistRules(rules.filter((current) => current.id !== rule.id))}><Trash2 /></button></article>)}
+            {rules.map((rule) => <article className={rule.id === RAIN_RULE_ID && rainEvaluation.status === "rain-likely" ? "highlight" : ""} key={rule.id}><span className="rule-icon"><Zap /></span><div><strong>{rule.name}</strong><span><AlarmClock /> {rule.trigger}</span><small><ChevronRight /> {rule.action}</small></div><label className="switch"><input type="checkbox" checked={rule.enabled} onChange={(event) => persistState({ ...state, rules: rules.map((current) => current.id === rule.id ? { ...current, enabled: event.target.checked } : current) })} /><span /></label><button className="icon-button compact" aria-label={`Excluir ${rule.name}`} onClick={() => persistState({ ...state, rules: rules.filter((current) => current.id !== rule.id) })} disabled={rule.id === RAIN_RULE_ID}><Trash2 /></button></article>)}
           </div>
         </article>
 
@@ -566,6 +720,7 @@ export function AutomationModule({ onToast }: { onToast: ToastHandler }) {
           <article className="panel privacy-panel"><span className="privacy-icon"><ShieldCheck /></span><div><span className="eyebrow">PRIVACIDADE</span><h3>Modo local</h3><p>Nenhuma configuração sai deste navegador. Você pode exportar tudo quando quiser.</p></div><label className="switch"><input type="checkbox" checked={localOnly} onChange={(event) => setLocalOnly(event.target.checked)} /><span /></label></article>
           <article className="panel backup-panel"><span className="eyebrow">PORTABILIDADE</span><h3>Backup e restauração</h3><p>Leve playlists, plugins e regras para outra instalação LumaBoard.</p><div><button className="button secondary" onClick={exportBackup}><Download /> Exportar JSON</button><label className="button secondary upload-button"><Upload /> Importar<input type="file" accept="application/json,.json" onChange={importBackup} /></label></div></article>
           <article className="panel endpoint-panel"><span className="eyebrow">API DO DISPOSITIVO</span><h3>Endpoint universal</h3><code className="mono">GET /api/display/:token</code><button className="button secondary full" onClick={() => { navigator.clipboard?.writeText("https://lumaboard.local/api/display/demo-token"); onToast("Endpoint copiado."); }}><Copy /> Copiar endpoint</button></article>
+          <article className="panel backup-panel"><span className="eyebrow">HISTÓRICO</span><h3>Alertas locais</h3>{state.history.length === 0 ? <p>Nenhum alerta registrado.</p> : state.history.slice(0, 5).map((event) => <p key={event.id}>{event.message}</p>)}</article>
         </aside>
       </div>
     </section>

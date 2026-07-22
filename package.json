@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "npm run lint && npm run build"
+    "test": "vitest run"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -26,7 +26,8 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "4.2.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^2.1.9"
   },
   "type": "module",
   "displayName": "LumaBoard",

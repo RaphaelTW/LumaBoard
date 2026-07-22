@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isRecord, readStoredValue, writeStoredValue } from "./storage";
 
 const LOCATION_KEY = "lumaboard-location-v1";
 const WEATHER_KEY = "lumaboard-weather-v1";
@@ -29,6 +30,17 @@ export type WeatherSnapshot = {
   timezone: string;
   updatedAt: string | null;
   locationSource: LocationSource;
+  hourly: HourlyForecast[];
+};
+
+export type HourlyForecast = {
+  time: string;
+  precipitationProbability: number | null;
+  precipitation: number | null;
+  rain: number | null;
+  showers: number | null;
+  weatherCode: number;
+  description: string;
 };
 
 type WeatherStatus = "loading" | "ready" | "stale" | "error";
@@ -53,38 +65,47 @@ export const initialWeather: WeatherSnapshot = {
   timezone: "America/Sao_Paulo",
   updatedAt: null,
   locationSource: "fallback",
+  hourly: [],
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function readJSON<T>(key: string): T | null {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
 function readStoredLocation(): StoredLocation | null {
-  const value = readJSON<StoredLocation>(LOCATION_KEY);
+  const value = readStoredValue<StoredLocation | null>(
+    LOCATION_KEY,
+    (item): item is StoredLocation | null => item === null || isStoredLocation(item),
+    null,
+  );
+  return value;
+}
+
+export function isStoredLocation(value: unknown): value is StoredLocation {
   if (
     !value ||
+    !isRecord(value) ||
     !Number.isFinite(value.latitude) ||
     !Number.isFinite(value.longitude) ||
     typeof value.city !== "string"
   ) {
-    return null;
+    return false;
   }
-  return value;
+  return true;
 }
 
 function readStoredWeather(): WeatherSnapshot | null {
-  const value = readJSON<WeatherSnapshot>(WEATHER_KEY);
-  if (!value || typeof value.city !== "string") return null;
-  return value;
+  return readStoredValue<WeatherSnapshot | null>(
+    WEATHER_KEY,
+    (item): item is WeatherSnapshot | null => item === null || isWeatherSnapshot(item),
+    null,
+  );
+}
+
+export function isWeatherSnapshot(value: unknown): value is WeatherSnapshot {
+  return (
+    isRecord(value) &&
+    typeof value.city === "string" &&
+    typeof value.description === "string" &&
+    typeof value.timezone === "string" &&
+    Array.isArray(value.hourly)
+  );
 }
 
 async function fetchJSON(url: URL, timeout = 9000): Promise<unknown> {
@@ -179,6 +200,12 @@ async function resolveLocation(force: boolean): Promise<StoredLocation> {
   }
 }
 
+export function resolveLocationFallback(
+  stored: StoredLocation | null,
+): StoredLocation {
+  return stored ?? fallbackLocation;
+}
+
 export function describeWeatherCode(code: number): string {
   if (code === 0) return "Céu limpo";
   if (code === 1) return "Predominantemente limpo";
@@ -203,12 +230,16 @@ async function fetchWeather(location: StoredLocation): Promise<WeatherSnapshot> 
     "temperature_2m,apparent_temperature,weather_code,is_day",
   );
   url.searchParams.set(
+    "hourly",
+    "precipitation_probability,precipitation,rain,showers,weather_code",
+  );
+  url.searchParams.set(
     "daily",
     "temperature_2m_max,temperature_2m_min",
   );
   url.searchParams.set("temperature_unit", "celsius");
   url.searchParams.set("timezone", "auto");
-  url.searchParams.set("forecast_days", "1");
+  url.searchParams.set("forecast_days", "2");
 
   const payload = await fetchJSON(url);
   if (!isRecord(payload) || !isRecord(payload.current) || !isRecord(payload.daily)) {
@@ -224,6 +255,35 @@ async function fetchWeather(location: StoredLocation): Promise<WeatherSnapshot> 
   const maximums = Array.isArray(daily.temperature_2m_max)
     ? daily.temperature_2m_max
     : [];
+
+  const hourly = isRecord(payload.hourly) ? payload.hourly : {};
+  const times = Array.isArray(hourly.time) ? hourly.time : [];
+  const probabilities = Array.isArray(hourly.precipitation_probability)
+    ? hourly.precipitation_probability
+    : [];
+  const precipitations = Array.isArray(hourly.precipitation)
+    ? hourly.precipitation
+    : [];
+  const rains = Array.isArray(hourly.rain) ? hourly.rain : [];
+  const showers = Array.isArray(hourly.showers) ? hourly.showers : [];
+  const codes = Array.isArray(hourly.weather_code) ? hourly.weather_code : [];
+  const currentTime = typeof current.time === "string" ? current.time : "";
+  const startIndex = Math.max(0, times.findIndex((time) => String(time) >= currentTime));
+  const hourlyForecast = times
+    .slice(startIndex, startIndex + 12)
+    .map((time, offset): HourlyForecast => {
+      const index = startIndex + offset;
+      const code = Number(codes[index]);
+      return {
+        time: String(time),
+        precipitationProbability: finiteOrNull(probabilities[index]),
+        precipitation: finiteOrNull(precipitations[index]),
+        rain: finiteOrNull(rains[index]),
+        showers: finiteOrNull(showers[index]),
+        weatherCode: Number.isFinite(code) ? code : 2,
+        description: describeWeatherCode(Number.isFinite(code) ? code : 2),
+      };
+    });
 
   const snapshot: WeatherSnapshot = {
     city: location.city,
@@ -243,12 +303,18 @@ async function fetchWeather(location: StoredLocation): Promise<WeatherSnapshot> 
         ? current.time
         : new Date().toISOString(),
     locationSource: location.source,
+    hourly: hourlyForecast,
   };
 
   if (!Number.isFinite(snapshot.temperature)) {
     throw new Error("Temperatura indisponível");
   }
   return snapshot;
+}
+
+function finiteOrNull(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 export function useLocalWeather() {
@@ -264,8 +330,8 @@ export function useLocalWeather() {
     try {
       const location = await resolveLocation(forceLocation);
       const snapshot = await fetchWeather(location);
-      window.localStorage.setItem(LOCATION_KEY, JSON.stringify(location));
-      window.localStorage.setItem(WEATHER_KEY, JSON.stringify(snapshot));
+      writeStoredValue(LOCATION_KEY, location);
+      writeStoredValue(WEATHER_KEY, snapshot);
       setWeather(snapshot);
       setStatus("ready");
     } catch {
