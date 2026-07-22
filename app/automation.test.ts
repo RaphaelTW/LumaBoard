@@ -13,6 +13,8 @@ const rule = defaultAutomationState.rules.find((item) => item.id === RAIN_RULE_I
 function weather(probabilities: Array<number | null>, updatedAt = "2026-07-21T12:00"): WeatherSnapshot {
   return {
     city: "São Paulo",
+    latitude: -23.55,
+    longitude: -46.63,
     temperature: 22,
     apparentTemperature: 23,
     minimum: 18,
@@ -93,9 +95,9 @@ describe("rain automation", () => {
     expect(state.rules[0].lastExecutedAt).toBe("2026-07-21T15:00:00.000Z");
   });
 
-  it("migrates legacy visual rules", () => {
+  it("drops legacy visual-only rules", () => {
     const migrated = migrateAutomationState([{ id: 1, name: "Legado", trigger: "x", action: "y", enabled: true }]);
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     expect(migrated.rules.some((item) => item.id === RAIN_RULE_ID)).toBe(true);
   });
 });

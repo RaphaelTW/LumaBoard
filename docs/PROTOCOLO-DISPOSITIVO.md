@@ -1,81 +1,68 @@
-# Protocolo de dispositivo LumaBoard
+# Protocolo de display sem conta
 
-Este documento descreve o contrato recomendado para conectar ESP32, Raspberry Pi, e-readers ou navegadores ao LumaBoard.
+Esta versão do LumaBoard não possui banco de dados, autenticação ou servidor de pareamento. O fluxo suportado é baseado em navegador e URL compartilhável.
 
-## 1. Pareamento
+## 1. Gerar o link
 
-O dispositivo gera um código curto, por exemplo `LUMA-4821`. O backend troca esse código por um token de leitura com escopo exclusivo para aquele dispositivo.
+O painel cria uma URL no formato:
 
-```http
-POST /api/pair
-Content-Type: application/json
+```text
+https://seu-site.netlify.app/?display=1#config=BASE64URL
+```
 
+O objeto codificado contém apenas dados adequados à tela:
+
+```json
 {
-  "code": "LUMA-4821",
-  "model": "esp32-s3",
-  "width": 800,
-  "height": 480,
-  "palette": "4-gray"
+  "event": {
+    "id": "local-id",
+    "title": "Revisão de projeto",
+    "date": "2026-07-22",
+    "time": "10:00"
+  },
+  "focus": {
+    "project": "LumaBoard",
+    "task": "Validar o display",
+    "durationMinutes": 25,
+    "remainingSeconds": 1500,
+    "running": false,
+    "endsAt": null
+  }
 }
 ```
 
-## 2. Buscar a próxima tela
+O fragmento `#config` não é enviado na requisição HTTP. Ele é lido e decodificado no navegador do display.
 
-```http
-GET /api/display/{token}
-If-None-Match: "sha256-do-frame-anterior"
-```
+## 2. Dados dinâmicos
 
-Resposta quando a tela mudou:
+Cada display resolve sua própria localização e consulta:
 
-```http
-HTTP/1.1 200 OK
-Content-Type: image/png
-ETag: "sha256-do-frame"
-X-Luma-Refresh-After: 900
-X-Luma-Palette: 4-gray
-X-Luma-Width: 800
-X-Luma-Height: 480
-```
+- Open-Meteo e BigDataCloud para clima;
+- `GET /api/public/summary?lat={latitude}&lon={longitude}` para qualidade do ar, câmbio, feriado e notícias.
 
-Resposta sem mudanças:
+A rota de resumo é uma Function sem estado. Ela não identifica o display e não salva dados.
 
-```http
-HTTP/1.1 304 Not Modified
-X-Luma-Refresh-After: 900
-```
+## 3. Atualização
 
-## 3. Telemetria opcional
+O navegador mantém cache local e atualiza os dados em intervalos controlados. O endpoint agregador também envia `Cache-Control` para aproveitar o cache da CDN.
 
-```http
-POST /api/device/{token}/status
-Content-Type: application/json
+## 4. Compatibilidade
 
-{
-  "battery": 82,
-  "rssi": -54,
-  "firmware": "1.0.0",
-  "last_frame_hash": "sha256-do-frame"
-}
-```
-
-## 4. Segurança mínima
-
-- Token diferente para cada dispositivo.
-- Token somente de leitura para buscar frames.
-- TLS obrigatório fora da rede local.
-- Rotação e revogação de token pelo painel.
-- Limite de requisições por dispositivo.
-- Nunca enviar senha de Wi-Fi ou credencial de plugin na resposta do display.
-- Comparar `ETag` para evitar downloads e refreshes desnecessários.
-
-## 5. Formatos
-
-| Dispositivo | Formato recomendado |
+| Dispositivo | Situação nesta versão |
 | --- | --- |
-| ESP32 e-paper | PNG indexado, BMP 1-bit ou buffer compactado |
-| Kindle/Kobo | PNG em escala de cinza |
-| Navegador | HTML responsivo ou PNG |
-| Raspberry Pi | PNG, WebP ou HTML em quiosque |
+| Navegador desktop/mobile | suportado |
+| Raspberry Pi em modo quiosque | suportado |
+| Kindle/Kobo com navegador moderno | suporte depende do motor do navegador |
+| ESP32 e-paper | requer firmware ou serviço de renderização adicional |
 
-O renderizador deve respeitar largura, altura e paleta informadas no pareamento.
+## 5. O que exigiria backend persistente
+
+Pareamento por código, sincronização instantânea, telemetria, revogação de dispositivos e envio remoto de frames exigem um estado compartilhado. Essas funções foram removidas da interface em vez de serem simuladas.
+
+## 6. Segurança
+
+- Não coloque senhas, tokens ou dados sensíveis no link.
+- Compartilhe o link somente com quem pode ver o compromisso e a tarefa codificados.
+- Use HTTPS.
+- Mantenha a Function com provedores fixos; não aceite proxy de URL arbitrária.
+- Respeite limites e atribuições das APIs públicas.

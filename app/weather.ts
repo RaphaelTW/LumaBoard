@@ -20,6 +20,8 @@ type StoredLocation = {
 
 export type WeatherSnapshot = {
   city: string;
+  latitude: number;
+  longitude: number;
   temperature: number | null;
   apparentTemperature: number | null;
   minimum: number | null;
@@ -55,6 +57,8 @@ const fallbackLocation: StoredLocation = {
 
 export const initialWeather: WeatherSnapshot = {
   city: "Localizando…",
+  latitude: fallbackLocation.latitude,
+  longitude: fallbackLocation.longitude,
   temperature: null,
   apparentTemperature: null,
   minimum: null,
@@ -102,6 +106,8 @@ export function isWeatherSnapshot(value: unknown): value is WeatherSnapshot {
   return (
     isRecord(value) &&
     typeof value.city === "string" &&
+    Number.isFinite(value.latitude) &&
+    Number.isFinite(value.longitude) &&
     typeof value.description === "string" &&
     typeof value.timezone === "string" &&
     Array.isArray(value.hourly)
@@ -287,6 +293,8 @@ async function fetchWeather(location: StoredLocation): Promise<WeatherSnapshot> 
 
   const snapshot: WeatherSnapshot = {
     city: location.city,
+    latitude: location.latitude,
+    longitude: location.longitude,
     temperature: Number(current.temperature_2m),
     apparentTemperature: Number(current.apparent_temperature),
     minimum: Number(minimums[0]),
@@ -343,6 +351,8 @@ export function useLocalWeather() {
         setWeather({
           ...initialWeather,
           city: fallbackLocation.city,
+          latitude: fallbackLocation.latitude,
+          longitude: fallbackLocation.longitude,
           description: "Previsão indisponível",
         });
         setStatus("error");

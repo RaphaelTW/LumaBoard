@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "LumaBoard — Painéis ambientes, sem distrações",
   description:
-    "Central local-first para criar, programar e sincronizar painéis e-paper, e-readers e qualquer navegador.",
+    "Central local-first para criar, programar e compartilhar painéis em e-paper, e-readers e qualquer navegador.",
   applicationName: "LumaBoard",
   manifest: "/site.webmanifest",
   icons: {

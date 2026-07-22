@@ -1,6 +1,6 @@
 "use client";
 
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 
 export type JsonObject = Record<string, unknown>;
 
@@ -12,6 +12,10 @@ export type StorageKey =
   | "lumaboard-playlist"
   | "lumaboard-devices"
   | "lumaboard-plugins"
+  | "lumaboard-agenda"
+  | "lumaboard-focus"
+  | "lumaboard-public-data-v1"
+  | "lumaboard-refresh-minutes"
   | "lumaboard-rules"
   | "lumaboard-backup-meta";
 
@@ -29,6 +33,10 @@ const managedKeys: StorageKey[] = [
   "lumaboard-playlist",
   "lumaboard-devices",
   "lumaboard-plugins",
+  "lumaboard-agenda",
+  "lumaboard-focus",
+  "lumaboard-public-data-v1",
+  "lumaboard-refresh-minutes",
   "lumaboard-rules",
   "lumaboard-backup-meta",
 ];

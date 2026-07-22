@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  BatteryMedium,
   Bell,
   CalendarDays,
   Check,
@@ -23,19 +22,26 @@ import {
   Monitor,
   Moon,
   MoreHorizontal,
+  Newspaper,
+  Pause,
   Play,
   Plus,
   RefreshCw,
+  RotateCcw,
   Settings,
   SlidersHorizontal,
   Sparkles,
   Sun,
+  Trash2,
+  Wind,
+  DollarSign,
+  ExternalLink,
+  Copy,
   WandSparkles,
-  Wifi,
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   RAIN_RULE_ID,
   defaultAutomationState,
@@ -53,6 +59,17 @@ import {
   type View,
 } from "./modules";
 import { type WeatherSnapshot, useLocalWeather } from "./weather";
+import {
+  formatTimer,
+  type AgendaEvent,
+  type FocusSession,
+  useLocalWidgets,
+} from "./local-widgets";
+import {
+  describeAqi,
+  type PublicSummary,
+  usePublicSummary,
+} from "./public-data";
 
 type Theme = "paper" | "night";
 
@@ -85,14 +102,16 @@ const plugins = [
     tone: "cyan",
   },
   {
-    name: "Webhook",
-    description: "Qualquer API transformada em conteúdo ambiente.",
+    name: "Dados públicos",
+    description: "AQI, câmbio, feriados e notícias sem chave de API.",
     icon: Code2,
     tone: "moss",
   },
 ];
 
 const weekDays = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
+const DEFAULT_PUBLIC_PLUGINS = ["news", "air", "rates", "holidays"];
+const PUBLIC_PLUGIN_IDS = new Set(DEFAULT_PUBLIC_PLUGINS);
 
 function safeTimezone(timezone: string): string {
   try {
@@ -187,10 +206,14 @@ function EInkPreview({
   refreshing = false,
   weather,
   now,
+  event,
+  focus,
 }: {
   refreshing?: boolean;
   weather: WeatherSnapshot;
   now: Date;
+  event: AgendaEvent | null;
+  focus: FocusSession;
 }) {
   const calendar = calendarModel(now, weather.timezone);
   const temperature =
@@ -218,8 +241,8 @@ function EInkPreview({
           ))}
         </div>
         <div className="calendar-event">
-          <span>10:00</span>
-          <strong>Revisão de projeto</strong>
+          <span>{event?.time ?? "--:--"}</span>
+          <strong>{event?.title ?? "Sem compromissos"}</strong>
         </div>
       </section>
 
@@ -235,14 +258,14 @@ function EInkPreview({
       <section className="eink-focus">
         <div className="mono eink-kicker">FOCO</div>
         <div className="eink-rule" />
-        <strong className="focus-time mono">25:00</strong>
-        <span>Projeto LumaBoard</span>
+        <strong className="focus-time mono">{formatTimer(focus.remainingSeconds)}</strong>
+        <span>{focus.project}</span>
         <div className="focus-ring" aria-hidden="true">
-          <Play fill="currentColor" />
+          {focus.running ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         </div>
         <div className="task-line">
           <Check aria-hidden="true" />
-          <span>Fechar wireframes</span>
+          <span>{focus.task}</span>
         </div>
       </section>
     </div>
@@ -255,7 +278,7 @@ function Modal({
   onClose,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -290,6 +313,213 @@ function Modal({
   );
 }
 
+
+type SharedDisplayConfig = {
+  event: AgendaEvent | null;
+  focus: FocusSession;
+};
+
+function isSharedAgendaEvent(value: unknown): value is AgendaEvent {
+  if (!value || typeof value !== "object") return false;
+  const event = value as Partial<AgendaEvent>;
+  return (
+    typeof event.id === "string" &&
+    typeof event.title === "string" &&
+    typeof event.date === "string" &&
+    typeof event.time === "string"
+  );
+}
+
+function isSharedFocus(value: unknown): value is FocusSession {
+  if (!value || typeof value !== "object") return false;
+  const focus = value as Partial<FocusSession>;
+  return (
+    typeof focus.project === "string" &&
+    typeof focus.task === "string" &&
+    typeof focus.durationMinutes === "number" &&
+    Number.isFinite(focus.durationMinutes) &&
+    typeof focus.remainingSeconds === "number" &&
+    Number.isFinite(focus.remainingSeconds) &&
+    typeof focus.running === "boolean" &&
+    (focus.endsAt === null || (typeof focus.endsAt === "number" && Number.isFinite(focus.endsAt)))
+  );
+}
+
+function encodeDisplayConfig(config: SharedDisplayConfig): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(config));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window
+    .btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function decodeDisplayConfig(encoded: string): SharedDisplayConfig | null {
+  try {
+    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const binary = window.atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (!value || typeof value !== "object") return null;
+    const candidate = value as Partial<SharedDisplayConfig>;
+    if (!isSharedFocus(candidate.focus)) return null;
+    if (candidate.event !== null && !isSharedAgendaEvent(candidate.event)) return null;
+    const remainingSeconds = candidate.focus.running && candidate.focus.endsAt
+      ? Math.max(0, Math.ceil((candidate.focus.endsAt - Date.now()) / 1000))
+      : candidate.focus.remainingSeconds;
+    return {
+      event: candidate.event ?? null,
+      focus: {
+        ...candidate.focus,
+        remainingSeconds,
+        running: candidate.focus.running && remainingSeconds > 0,
+        endsAt: candidate.focus.running && remainingSeconds > 0 ? candidate.focus.endsAt : null,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatPublicDate(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  }).format(date);
+}
+
+function LocalWidgetsPanel({
+  events,
+  nextEvent,
+  focus,
+  todayKey,
+  onAddEvent,
+  onRemoveEvent,
+  onUpdateFocus,
+  onSetFocusDuration,
+  onToggleFocus,
+  onResetFocus,
+  onToast,
+}: {
+  events: AgendaEvent[];
+  nextEvent: AgendaEvent | null;
+  focus: FocusSession;
+  todayKey: string;
+  onAddEvent: (event: Omit<AgendaEvent, "id">) => boolean;
+  onRemoveEvent: (id: string) => void;
+  onUpdateFocus: (patch: Partial<FocusSession>) => void;
+  onSetFocusDuration: (minutes: number) => void;
+  onToggleFocus: () => void;
+  onResetFocus: () => void;
+  onToast: (message: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState(todayKey);
+  const [time, setTime] = useState("09:00");
+
+  const submitEvent = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!onAddEvent({ title, date, time })) {
+      onToast("Preencha título, data e horário válidos.");
+      return;
+    }
+    setTitle("");
+    onToast("Compromisso salvo neste navegador.");
+  };
+
+  return (
+    <section className="local-data-section">
+      <header className="section-heading">
+        <div>
+          <span className="eyebrow">MEMÓRIA LOCAL</span>
+          <h2>Agenda e foco que funcionam offline.</h2>
+        </div>
+        <span className="status-chip"><span className="status-dot" /> LOCALSTORAGE</span>
+      </header>
+      <div className="local-widgets-grid">
+        <article className="panel local-widget-card">
+          <header><CalendarDays /><div><strong>Agenda local</strong><span>{nextEvent ? `Próximo: ${nextEvent.time}` : "Nenhum compromisso futuro"}</span></div></header>
+          <form className="event-form" onSubmit={submitEvent}>
+            <input aria-label="Título do compromisso" placeholder="Novo compromisso" value={title} onChange={(event) => setTitle(event.target.value)} />
+            <input aria-label="Data" type="date" min={todayKey} value={date} onChange={(event) => setDate(event.target.value)} />
+            <input aria-label="Horário" type="time" value={time} onChange={(event) => setTime(event.target.value)} />
+            <button className="button primary" type="submit"><Plus /> Adicionar</button>
+          </form>
+          <div className="event-list">
+            {events.length === 0 && <p>Os compromissos ficam somente neste navegador e entram na prévia automaticamente.</p>}
+            {events.slice(0, 4).map((item) => (
+              <div key={item.id}>
+                <span className="mono">{formatPublicDate(item.date)} · {item.time}</span>
+                <strong>{item.title}</strong>
+                <button className="icon-button compact" aria-label={`Excluir ${item.title}`} onClick={() => onRemoveEvent(item.id)}><Trash2 /></button>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel local-widget-card focus-control-card">
+          <header><Focus /><div><strong>Temporizador de foco</strong><span>{focus.running ? "Sessão em andamento" : "Pronto para começar"}</span></div></header>
+          <strong className="local-focus-time mono">{formatTimer(focus.remainingSeconds)}</strong>
+          <div className="focus-fields">
+            <input aria-label="Projeto" value={focus.project} onChange={(event) => onUpdateFocus({ project: event.target.value })} />
+            <input aria-label="Tarefa" value={focus.task} onChange={(event) => onUpdateFocus({ task: event.target.value })} />
+            <label>Duração
+              <select value={focus.durationMinutes} onChange={(event) => onSetFocusDuration(Number(event.target.value))} disabled={focus.running}>
+                <option value="15">15 min</option>
+                <option value="25">25 min</option>
+                <option value="45">45 min</option>
+                <option value="60">60 min</option>
+              </select>
+            </label>
+          </div>
+          <div className="focus-actions">
+            <button className="button primary" onClick={onToggleFocus}>{focus.running ? <><Pause /> Pausar</> : <><Play /> Iniciar</>}</button>
+            <button className="button secondary" onClick={onResetFocus}><RotateCcw /> Reiniciar</button>
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function PublicDataPanel({
+  summary,
+  status,
+  onRefresh,
+  enabled,
+}: {
+  summary: PublicSummary;
+  status: "loading" | "ready" | "stale" | "error";
+  onRefresh: () => void;
+  enabled: string[];
+}) {
+  const ratesReady = summary.rates.usdBrl !== null || summary.rates.eurBrl !== null;
+  return (
+    <section className="public-data-section">
+      <header className="section-heading">
+        <div><span className="eyebrow">APIS SEM CHAVE</span><h2>Dados públicos atualizados.</h2></div>
+        <button className="button secondary" onClick={onRefresh}><RefreshCw className={status === "loading" ? "spin" : ""} /> Atualizar dados</button>
+      </header>
+      <div className="public-data-grid">
+        {enabled.includes("air") && <article className="panel public-data-card"><span className="metric-icon"><Wind /></span><div><span>Qualidade do ar</span><strong>{summary.airQuality.europeanAqi ?? "—"} AQI</strong><small>{describeAqi(summary.airQuality.europeanAqi)} · PM2.5 {summary.airQuality.pm25 ?? "—"} µg/m³</small></div></article>}
+        {enabled.includes("rates") && <article className="panel public-data-card"><span className="metric-icon"><DollarSign /></span><div><span>Câmbio</span><strong>{ratesReady ? `US$ ${summary.rates.usdBrl?.toFixed(2) ?? "—"}` : "Indisponível"}</strong><small>€ {summary.rates.eurBrl?.toFixed(2) ?? "—"} · {formatPublicDate(summary.rates.date)}</small></div></article>}
+        {enabled.includes("holidays") && <article className="panel public-data-card"><span className="metric-icon"><CalendarDays /></span><div><span>Próximo feriado nacional</span><strong>{summary.nextHoliday?.name ?? "Consultando…"}</strong><small>{formatPublicDate(summary.nextHoliday?.date ?? null)} · BrasilAPI</small></div></article>}
+        {enabled.includes("news") && <article className="panel public-data-card news-card"><span className="metric-icon"><Newspaper /></span><div><span>Hacker News</span><strong>{summary.news[0]?.title ?? "Notícias indisponíveis"}</strong>{summary.news[0] && <a href={summary.news[0].url} target="_blank" rel="noreferrer">{summary.news[0].source} · {summary.news[0].score} pontos <ExternalLink /></a>}</div></article>}
+        {enabled.length === 0 && <article className="panel public-data-card empty-public-card"><span className="metric-icon"><Library /></span><div><span>Fontes opcionais ocultas</span><strong>Abra a Biblioteca</strong><small>Ative AQI, câmbio, feriados ou notícias.</small></div></article>}
+      </div>
+      <footer className="public-data-footer"><span>{status === "ready" ? "Dados atualizados" : status === "stale" ? "Usando cache local" : status === "error" ? "APIs temporariamente indisponíveis" : "Conectando às APIs"}</span><span><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo / CAMS</a> · Frankfurter · BrasilAPI · Hacker News</span></footer>
+    </section>
+  );
+}
+
 export function LumaBoardApp() {
   const [theme, setTheme] = useState<Theme>("paper");
   const [refreshing, setRefreshing] = useState(false);
@@ -300,8 +530,16 @@ export function LumaBoardApp() {
   const [modal, setModal] = useState<"create" | "device" | "preview" | null>(
     null,
   );
+  const [enabledPublicPlugins, setEnabledPublicPlugins] = useState<string[]>(DEFAULT_PUBLIC_PLUGINS);
   const { weather, status: weatherStatus, refresh: refreshWeather } =
     useLocalWeather();
+  const localWidgets = useLocalWidgets();
+  const {
+    summary: publicSummary,
+    status: publicDataStatus,
+    refresh: refreshPublicData,
+  } = usePublicSummary(weather.latitude, weather.longitude);
+  const [sharedConfig, setSharedConfig] = useState<SharedDisplayConfig | null>(null);
   const [automationState, setAutomationState] = useState(defaultAutomationState);
   const rainRule =
     automationState.rules.find((rule) => rule.id === RAIN_RULE_ID) ??
@@ -315,6 +553,8 @@ export function LumaBoardApp() {
     () => calendarModel(now, weather.timezone),
     [now, weather.timezone],
   );
+  const previewEvent = sharedConfig?.event ?? localWidgets.nextEvent;
+  const previewFocus = sharedConfig?.focus ?? localWidgets.focus;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -325,6 +565,40 @@ export function LumaBoardApp() {
     const saved = window.localStorage.getItem("lumaboard-theme");
     if (saved === "night") queueMicrotask(() => setTheme("night"));
     queueMicrotask(() => setAutomationState(readAutomationState()));
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const encodedConfig = hashParams.get("config");
+    if (encodedConfig) {
+      const decoded = decodeDisplayConfig(encodedConfig);
+      if (decoded) queueMicrotask(() => setSharedConfig(decoded));
+    }
+    if (params.get("display") === "1") queueMicrotask(() => setDisplayMode(true));
+  }, []);
+
+  useEffect(() => {
+    const readEnabled = () => {
+      try {
+        const stored: unknown = JSON.parse(window.localStorage.getItem("lumaboard-plugins") ?? "null");
+        if (!Array.isArray(stored)) return DEFAULT_PUBLIC_PLUGINS;
+        return stored.filter((item): item is string => typeof item === "string" && PUBLIC_PLUGIN_IDS.has(item));
+      } catch {
+        return DEFAULT_PUBLIC_PLUGINS;
+      }
+    };
+    const syncEnabled = (event?: Event) => {
+      if (event instanceof CustomEvent && Array.isArray(event.detail)) {
+        setEnabledPublicPlugins(event.detail.filter((item): item is string => typeof item === "string" && PUBLIC_PLUGIN_IDS.has(item)));
+        return;
+      }
+      setEnabledPublicPlugins(readEnabled());
+    };
+    queueMicrotask(() => syncEnabled());
+    window.addEventListener("lumaboard:plugins", syncEnabled);
+    window.addEventListener("storage", syncEnabled);
+    return () => {
+      window.removeEventListener("lumaboard:plugins", syncEnabled);
+      window.removeEventListener("storage", syncEnabled);
+    };
   }, []);
 
   useEffect(() => {
@@ -334,19 +608,32 @@ export function LumaBoardApp() {
   }, [toast]);
 
   const deviceState = useMemo(
-    () => ({ name: "Sala", battery: 82, synced: "há 2 min" }),
+    () => ({ name: "Display local", synced: "agora" }),
     [],
   );
 
   const refreshDevice = () => {
     if (refreshing) return;
     setRefreshing(true);
-    setToast("Simulação local — conexão real requer backend.");
-    void refreshWeather();
-    window.setTimeout(() => {
-      setRefreshing(false);
-      setToast("Prévia local atualizada.");
-    }, 760);
+    void Promise.all([refreshWeather(), refreshPublicData()]).finally(() => {
+      window.setTimeout(() => {
+        setRefreshing(false);
+        setToast("Clima, APIs públicas e prévia atualizados.");
+      }, 420);
+    });
+  };
+
+  const copyDisplayLink = async () => {
+    const payload = encodeDisplayConfig({ event: localWidgets.nextEvent, focus: localWidgets.focus });
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set("display", "1");
+    url.hash = `config=${payload}`;
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setToast("Link do display copiado. Abra em outro navegador.");
+    } catch {
+      window.prompt("Copie o link do display:", url.toString());
+    }
   };
 
   const updateRainRule = (nextRule: LocalAutomationRule) => {
@@ -406,7 +693,7 @@ export function LumaBoardApp() {
         <button className="display-exit button secondary" onClick={() => setDisplayMode(false)}>
           <X /> Sair do modo display
         </button>
-        <div className="display-canvas"><EInkPreview weather={weather} now={now} /></div>
+        <div className="display-canvas"><EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} /></div>
       </div>
     );
   }
@@ -436,9 +723,9 @@ export function LumaBoardApp() {
           <div className="device-dot" />
           <div>
             <strong>{deviceState.name}</strong>
-            <span>{deviceState.battery}% bateria · online</span>
+            <span>dados locais · sem conta</span>
           </div>
-          <BatteryMedium aria-hidden="true" />
+          <Monitor aria-hidden="true" />
         </div>
       </aside>
 
@@ -489,7 +776,7 @@ export function LumaBoardApp() {
                 <Plus /> Criar tela
               </button>
               <button className="button secondary" onClick={() => setModal("device")}>
-                <Monitor /> Adicionar dispositivo
+                <Copy /> Gerar link do display
               </button>
             </div>
           </section>
@@ -517,12 +804,12 @@ export function LumaBoardApp() {
                 onClick={() => setModal("preview")}
                 aria-label="Abrir prévia em tela ampliada"
               >
-                <EInkPreview refreshing={refreshing} weather={weather} now={now} />
+                <EInkPreview refreshing={refreshing} weather={weather} now={now} event={previewEvent} focus={previewFocus} />
               </button>
               <footer className="preview-footer">
                 <span>
                   <RefreshCw className={refreshing ? "spin" : ""} />
-                  {refreshing ? "Sincronizando…" : `Atualizado ${deviceState.synced}`}
+                  {refreshing ? "Atualizando…" : `Atualizado ${deviceState.synced}`}
                 </span>
                 <span>{weatherStatus === "ready" ? "Clima ao vivo" : weatherStatus === "stale" ? "Clima em cache" : "Conectando ao clima"} · 4 cinzas</span>
               </footer>
@@ -534,43 +821,64 @@ export function LumaBoardApp() {
                   <span className="device-icon"><Monitor /></span>
                   <div>
                     <strong>{deviceState.name}</strong>
-                    <span><span className="status-dot" /> online</span>
+                    <span><span className="status-dot" /> navegador local</span>
                   </div>
                   <MoreHorizontal />
                 </header>
                 <div className="device-metrics">
-                  <div><BatteryMedium /><strong>{deviceState.battery}%</strong><span>bateria</span></div>
-                  <div><Wifi /><strong>-54</strong><span>dBm</span></div>
+                  <div><CalendarDays /><strong>{localWidgets.events.length}</strong><span>eventos locais</span></div>
+                  <div><CloudSun /><strong>{enabledPublicPlugins.length}</strong><span>fontes públicas visíveis</span></div>
                 </div>
                 <button className="button primary full" onClick={refreshDevice} disabled={refreshing}>
                   <RefreshCw className={refreshing ? "spin" : ""} />
-                  {refreshing ? "Enviando…" : "Enviar agora"}
+                  {refreshing ? "Atualizando…" : "Atualizar tudo"}
                 </button>
               </article>
 
               <article className="schedule-card panel">
                 <header>
                   <div>
-                    <span className="eyebrow">PRÓXIMA TROCA</span>
-                    <strong>Trabalho · Tarde</strong>
+                    <span className="eyebrow">PRÓXIMO COMPROMISSO</span>
+                    <strong>{localWidgets.nextEvent?.title ?? "Agenda livre"}</strong>
                   </div>
                   <span className="date-tile mono">{calendar.tile.day}<small>{calendar.tile.month}</small></span>
                 </header>
                 <div className="schedule-time">
-                  <strong className="mono">14:00</strong>
-                  <span>em 1h 24min</span>
+                  <strong className="mono">{localWidgets.nextEvent?.time ?? "--:--"}</strong>
+                  <span>{localWidgets.nextEvent ? formatPublicDate(localWidgets.nextEvent.date) : "Adicione um evento abaixo"}</span>
                 </div>
                 <div className="progress"><i /></div>
-                <button className="text-button" onClick={() => setActiveView("playlists")}>Ver agenda completa <ChevronRight /></button>
+                <button className="text-button" onClick={() => document.querySelector(".local-data-section")?.scrollIntoView({ behavior: "smooth" })}>Editar agenda local <ChevronRight /></button>
               </article>
             </div>
           </section>
 
+          <LocalWidgetsPanel
+            events={localWidgets.events}
+            nextEvent={localWidgets.nextEvent}
+            focus={localWidgets.focus}
+            todayKey={localWidgets.todayKey}
+            onAddEvent={localWidgets.addEvent}
+            onRemoveEvent={localWidgets.removeEvent}
+            onUpdateFocus={localWidgets.updateFocus}
+            onSetFocusDuration={localWidgets.setFocusDuration}
+            onToggleFocus={localWidgets.toggleFocus}
+            onResetFocus={localWidgets.resetFocus}
+            onToast={setToast}
+          />
+
+          <PublicDataPanel
+            summary={publicSummary}
+            status={publicDataStatus}
+            onRefresh={() => void refreshPublicData()}
+            enabled={enabledPublicPlugins}
+          />
+
           <section className="metric-grid" aria-label="Resumo operacional">
-            <article className="metric panel"><span className="metric-icon"><Monitor /></span><div><strong>3</strong><span>dispositivos online</span><small>de 4 no total</small></div></article>
-            <article className="metric panel"><span className="metric-icon"><ListMusic /></span><div><strong>5</strong><span>playlists ativas</span><small>2 em execução agora</small></div></article>
-            <article className="metric panel"><span className="metric-icon"><CircleGauge /></span><div><strong>92%</strong><span>eficiência energética</span><small>+8% neste mês</small></div></article>
-            <article className="insight panel"><span className="metric-icon"><Sparkles /></span><div><strong>Economia inteligente</strong><span>O refresh adaptativo deve render mais 23 dias de bateria.</span></div></article>
+            <article className="metric panel"><span className="metric-icon"><Monitor /></span><div><strong>1</strong><span>display local</span><small>link compartilhável, sem pareamento</small></div></article>
+            <article className="metric panel"><span className="metric-icon"><CloudSun /></span><div><strong>{enabledPublicPlugins.length}</strong><span>fontes opcionais visíveis</span><small>4 disponíveis sem chave</small></div></article>
+            <article className="metric panel"><span className="metric-icon"><CircleGauge /></span><div><strong>0</strong><span>contas obrigatórias</span><small>nenhum token armazenado</small></div></article>
+            <article className="insight panel"><span className="metric-icon"><Sparkles /></span><div><strong>Backend sem estado</strong><span>A Function apenas normaliza dados públicos; agenda, foco e preferências ficam no localStorage.</span></div></article>
           </section>
 
           <section className="plugins-section">
@@ -594,14 +902,14 @@ export function LumaBoardApp() {
           </section>
           </div>
 
-          {activeView === "studio" && <StudioModule preview={<EInkPreview weather={weather} now={now} />} onToast={setToast} />}
+          {activeView === "studio" && <StudioModule preview={<EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} />} onToast={setToast} />}
           {activeView === "playlists" && <PlaylistsModule onToast={setToast} city={weather.city} />}
           {activeView === "devices" && (
             <DevicesModule
-              preview={<EInkPreview weather={weather} now={now} />}
+              preview={<EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} />}
               onToast={setToast}
-              onPair={() => setModal("device")}
               onDisplay={() => setDisplayMode(true)}
+              onCopyLink={() => void copyDisplayLink()}
             />
           )}
           {activeView === "library" && <LibraryModule onToast={setToast} />}
@@ -635,20 +943,19 @@ export function LumaBoardApp() {
       )}
 
       {modal === "device" && (
-        <Modal title="Conectar um dispositivo" onClose={() => setModal(null)}>
+        <Modal title="Abrir em outro display" onClose={() => setModal(null)}>
           <div className="pairing-flow">
-            <div className="pairing-steps"><span className="active">1</span><i /><span>2</span><i /><span>3</span></div>
-            <div className="pairing-copy"><span className="pair-icon"><Wifi /></span><div><h3>Digite o código exibido na tela</h3><p>Compatível com ESP32, Kindle, Kobo, navegador, Raspberry Pi e qualquer tela com URL.</p></div></div>
-            <label className="field-label" htmlFor="pair-code">Código de pareamento</label>
-            <input id="pair-code" className="pair-input mono" placeholder="LUMA-4821" maxLength={9} />
-            <button className="button primary full" onClick={() => { setModal(null); setActiveView("devices"); setToast("Código reconhecido. Dispositivo pronto para nomear."); }}>Verificar código <ChevronRight /></button>
+            <div className="pairing-copy"><span className="pair-icon"><Monitor /></span><div><h3>Compartilhe um link, sem conta ou banco</h3><p>O link leva o próximo compromisso e a sessão de foco. Clima e APIs públicas são atualizados no próprio aparelho que abrir a tela.</p></div></div>
+            <div className="privacy-note"><Copy /><span>A configuração vai no fragmento <code>#config</code> da URL e não é armazenada pelo Netlify.</span></div>
+            <button className="button primary full" onClick={() => { void copyDisplayLink(); setModal(null); }}><Copy /> Copiar link do display</button>
+            <button className="button secondary full" onClick={() => { setModal(null); setDisplayMode(true); }}><Monitor /> Abrir neste navegador</button>
           </div>
         </Modal>
       )}
 
       {modal === "preview" && (
         <Modal title="Prévia 800 × 480" onClose={() => setModal(null)}>
-          <div className="expanded-preview"><EInkPreview refreshing={refreshing} weather={weather} now={now} /><div className="expanded-actions"><span className="mono">PALETA: 4 CINZAS</span><button className="button primary" onClick={refreshDevice}><RefreshCw /> Atualizar tela</button></div></div>
+          <div className="expanded-preview"><EInkPreview refreshing={refreshing} weather={weather} now={now} event={previewEvent} focus={previewFocus} /><div className="expanded-actions"><span className="mono">PALETA: 4 CINZAS</span><button className="button primary" onClick={refreshDevice}><RefreshCw /> Atualizar tela</button></div></div>
         </Modal>
       )}
 

@@ -56,39 +56,15 @@ export type RainEvaluation = {
 };
 
 export const defaultAutomationState: AutomationState = {
-  version: 2,
+  version: 3,
   rules: [
     {
       id: RAIN_RULE_ID,
       name: "Alerta de chuva",
       trigger: "Chuva > 60%",
-      action: "Priorizar tela Clima",
+      action: "Exibir alerta local e priorizar o clima",
       enabled: true,
       cooldownMinutes: RAIN_RULE_COOLDOWN_MINUTES,
-      lastEvaluatedAt: null,
-      lastExecutedAt: null,
-      lastSignature: null,
-      config: { threshold: 60 },
-    },
-    {
-      id: "work-mode",
-      name: "Modo trabalho",
-      trigger: "Seg-Sex as 08:00",
-      action: "Ativar playlist Trabalho",
-      enabled: true,
-      cooldownMinutes: 60,
-      lastEvaluatedAt: null,
-      lastExecutedAt: null,
-      lastSignature: null,
-      config: { threshold: 60 },
-    },
-    {
-      id: "night-saver",
-      name: "Economia noturna",
-      trigger: "Todos os dias as 22:30",
-      action: "Suspender atualizacoes",
-      enabled: true,
-      cooldownMinutes: 60,
       lastEvaluatedAt: null,
       lastExecutedAt: null,
       lastSignature: null,
@@ -129,36 +105,16 @@ export function migrateAutomationState(value: unknown): AutomationState {
     const hasRain = value.rules.some((rule) => rule.id === RAIN_RULE_ID);
     return {
       ...value,
+      version: 3,
       rules: hasRain
-        ? value.rules.map(normalizeRule)
-        : [defaultAutomationState.rules[0], ...value.rules.map(normalizeRule)],
+        ? value.rules.filter((rule) => rule.id === RAIN_RULE_ID).map(normalizeRule)
+        : [defaultAutomationState.rules[0]],
       history: value.history.filter(isHistoryEvent),
     };
   }
 
   if (Array.isArray(value)) {
-    return {
-      ...defaultAutomationState,
-      rules: [
-        defaultAutomationState.rules[0],
-        ...value
-          .filter((item): item is Record<string, unknown> => isRecord(item))
-          .map((item, index) =>
-            normalizeRule({
-              id: typeof item.id === "number" ? `legacy-${item.id}` : `legacy-${index}`,
-              name: typeof item.name === "string" ? item.name : "Regra local",
-              trigger: typeof item.trigger === "string" ? item.trigger : "Configuracao visual",
-              action: typeof item.action === "string" ? item.action : "Requer backend",
-              enabled: item.enabled !== false,
-              cooldownMinutes: 60,
-              lastEvaluatedAt: null,
-              lastExecutedAt: null,
-              lastSignature: null,
-              config: { threshold: 60 },
-            }),
-          ),
-      ],
-    };
+    return defaultAutomationState;
   }
 
   return defaultAutomationState;

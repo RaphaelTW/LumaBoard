@@ -5,7 +5,6 @@ import {
   AlarmClock,
   ArrowDown,
   ArrowUp,
-  BatteryMedium,
   Bell,
   BookOpen,
   CalendarDays,
@@ -23,12 +22,10 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   Link,
-  MapPin,
   Monitor,
   MoonStar,
   MoreHorizontal,
   Plus,
-  Power,
   RefreshCw,
   Rss,
   Save,
@@ -36,13 +33,10 @@ import {
   Send,
   Settings2,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   TimerReset,
   Trash2,
   Upload,
-  Webhook,
-  Wifi,
   Zap,
 } from "lucide-react";
 import type { ChangeEvent, ReactNode } from "react";
@@ -140,7 +134,7 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
 
   const saveDraft = () => {
     writeStoredValue("lumaboard-studio", { selected, layout, screenName, palette, interval });
-    onToast("Tela salva localmente e pronta para sincronizar.");
+    onToast("Tela salva localmente e pronta para o link de display.");
   };
 
   const restoreDraft = () => {
@@ -174,7 +168,7 @@ export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast
           <>
             <button className="button secondary" onClick={restoreDraft}><RefreshCw /> Restaurar</button>
             <button className="button secondary" onClick={saveDraft}><Save /> Salvar rascunho</button>
-            <button className="button primary" onClick={() => onToast("Simulação local — conexão real requer backend.")}><Send /> Enviar para Sala</button>
+            <button className="button primary" onClick={() => onToast("Tela salva localmente. Copie o link na área Dispositivos.")}><Send /> Preparar display</button>
           </>
         }
       />
@@ -263,10 +257,10 @@ type PlaylistItem = {
 };
 
 const createDefaultPlaylist = (city: string): PlaylistItem[] => [
-  { id: 1, name: "Agenda de hoje", detail: "Google Agenda · Sala", duration: "15", enabled: true, icon: "calendar" },
+  { id: 1, name: "Agenda de hoje", detail: "Eventos locais · navegador", duration: "15", enabled: true, icon: "calendar" },
   { id: 2, name: "Clima e trajeto", detail: `${city} · 4 cinzas`, duration: "10", enabled: true, icon: "weather" },
   { id: 3, name: "Bloco de foco", detail: "Tarefas locais · monocromático", duration: "25", enabled: true, icon: "focus" },
-  { id: 4, name: "Resumo de notícias", detail: "RSS selecionado · 5 itens", duration: "30", enabled: false, icon: "news" },
+  { id: 4, name: "Resumo de notícias", detail: "Hacker News API · 5 itens", duration: "30", enabled: true, icon: "news" },
 ];
 
 const playlistIcons = { calendar: CalendarDays, weather: CloudSun, focus: Focus, news: Rss };
@@ -325,19 +319,19 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
       <ModuleHeading
         eyebrow="PROGRAMAÇÃO"
         title="Playlists inteligentes."
-        description="Defina a ordem, a duração e as regras de exibição. O LumaBoard evita renderizações quando os dados não mudam."
+        description="Organize a ordem e a duração das telas. A configuração fica salva neste navegador."
         action={<button className="button primary" onClick={() => persist([...items, { id: Date.now(), name: "Nova tela", detail: "Widgets locais", duration: "15", enabled: true, icon: "focus" }])}><Plus /> Adicionar tela</button>}
       />
 
       <div className="playlist-layout">
         <article className="playlist-panel panel">
           <header className="list-header">
-            <div><strong>Trabalho · Dias úteis</strong><span>{activeCount} telas ativas · Sala</span></div>
-            <div className="list-header-actions"><span className="status-chip"><span className="status-dot" /> EM EXECUÇÃO</span><button className="icon-button compact" aria-label="Mais opções"><MoreHorizontal /></button></div>
+            <div><strong>Trabalho · Dias úteis</strong><span>{activeCount} telas ativas · neste navegador</span></div>
+            <div className="list-header-actions"><span className="status-chip"><span className="status-dot" /> SALVA LOCALMENTE</span><button className="icon-button compact" aria-label="Mais opções"><MoreHorizontal /></button></div>
           </header>
           <div className="playlist-list">
             {items.map((item, index) => {
-              const Icon = playlistIcons[item.icon];
+              const Icon = playlistIcons[item.icon as keyof typeof playlistIcons];
               return (
                 <article className={!item.enabled ? "disabled" : ""} key={item.id}>
                   <GripVertical className="drag-handle" />
@@ -371,7 +365,7 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
               );
             })}
           </div>
-          <footer className="list-footer"><button className="text-button" onClick={() => persist([...items, { id: Date.now(), name: "Nova tela", detail: "Sem plugin configurado", duration: "15", enabled: true, icon: "focus" }])}><Plus /> Adicionar à playlist</button><button className="button primary" onClick={() => onToast("Playlist salva e sincronizada.")}><Save /> Salvar alterações</button></footer>
+          <footer className="list-footer"><button className="text-button" onClick={() => persist([...items, { id: Date.now(), name: "Nova tela", detail: "Sem plugin configurado", duration: "15", enabled: true, icon: "focus" }])}><Plus /> Adicionar à playlist</button><button className="button primary" onClick={() => onToast("Playlist salva neste navegador.")}><Save /> Salvar alterações</button></footer>
         </article>
 
         <aside className="schedule-sidebar">
@@ -384,7 +378,7 @@ export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city
             <div className="time-labels mono"><span>00H</span><span>12H</span><span>23H</span></div>
             <div className="simulation-result"><Clock3 /><div><strong>{hour < 8 ? "Descanso" : hour < 18 ? "Trabalho" : "Casa"}</strong><span>{hour < 8 ? "Tela em pausa" : hour < 18 ? "Agenda de hoje" : "Clima e lembretes"}</span></div></div>
           </article>
-          <article className="panel rule-card"><span className="eyebrow">REGRAS</span><h3>Economia de bateria</h3><div className="rule-row"><MoonStar /><div><strong>Dormir às 22:30</strong><span>Acordar às 07:00</span></div><span className="status-chip">ATIVA</span></div><div className="rule-row"><TimerReset /><div><strong>Ignorar sem mudanças</strong><span>Economia estimada de 18%</span></div><span className="status-chip">ATIVA</span></div></article>
+          <article className="panel rule-card"><span className="eyebrow">COMPORTAMENTO LOCAL</span><h3>Uso consciente de dados</h3><div className="rule-row"><MoonStar /><div><strong>Janela noturna sugerida</strong><span>Configure o aparelho para reduzir atualizações</span></div><span className="status-chip">GUIA</span></div><div className="rule-row"><TimerReset /><div><strong>Cache de APIs</strong><span>Resumo público reutilizado por até 15 minutos</span></div><span className="status-chip">ATIVO</span></div></article>
         </aside>
       </div>
     </section>
@@ -397,40 +391,45 @@ type LocalDevice = {
   model: string;
   resolution: string;
   interval: number;
-  battery: number;
-  status: "online" | "offline";
-  signal: number;
+  status: "local";
   sync: string;
 };
 
 const devices: LocalDevice[] = [
-  { id: "sala", name: "Sala", model: "ESP32", resolution: "800 × 480", interval: 15, battery: 82, status: "online", signal: -54, sync: "há 2 min" },
-  { id: "cozinha", name: "Cozinha", model: "Kindle", resolution: "1072 × 1448", interval: 30, battery: 61, status: "online", signal: -67, sync: "há 8 min" },
-  { id: "escritorio", name: "Escritório", model: "Navegador", resolution: "1280 × 800", interval: 15, battery: 100, status: "online", signal: -42, sync: "agora" },
-  { id: "quarto", name: "Quarto", model: "Kobo", resolution: "758 × 1024", interval: 60, battery: 14, status: "offline", signal: 0, sync: "ontem" },
+  { id: "browser", name: "Navegador principal", model: "Navegador", resolution: "800 × 480", interval: 15, status: "local", sync: "salvo neste navegador" },
 ];
 
 export function DevicesModule({
   preview,
   onToast,
-  onPair,
   onDisplay,
+  onCopyLink,
 }: {
   preview: ReactNode;
   onToast: ToastHandler;
-  onPair: () => void;
   onDisplay: () => void;
+  onCopyLink: () => void;
 }) {
   const [localDevices, setLocalDevices] = useState<LocalDevice[]>(devices);
-  const [selectedId, setSelectedId] = useState("sala");
+  const [selectedId, setSelectedId] = useState("browser");
   const [refreshMinutes, setRefreshMinutes] = useState(15);
   const selected = localDevices.find((device) => device.id === selectedId) ?? localDevices[0];
-  const projectedDays = Math.max(9, Math.round((selected.battery / 100) * (refreshMinutes * 4.8)));
 
   useEffect(() => {
     const saved = safeParseJSON(window.localStorage.getItem("lumaboard-devices"));
     if (Array.isArray(saved) && saved.length > 0) {
-      queueMicrotask(() => setLocalDevices(saved as LocalDevice[]));
+      const normalized = saved
+        .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+        .map((item, index): LocalDevice => ({
+          id: typeof item.id === "string" ? item.id : `local-${index}`,
+          name: typeof item.name === "string" ? item.name : "Display local",
+          model: typeof item.model === "string" ? item.model : "Navegador",
+          resolution: typeof item.resolution === "string" ? item.resolution : "800 × 480",
+          interval: typeof item.interval === "number" && Number.isFinite(item.interval) ? item.interval : 15,
+          status: "local",
+          sync: "salvo neste navegador",
+        }));
+      if (normalized.length > 0) queueMicrotask(() => setLocalDevices(normalized));
     }
   }, []);
 
@@ -443,17 +442,21 @@ export function DevicesModule({
     persistDevices(localDevices.map((device) => device.id === selected.id ? { ...device, ...patch } : device));
   };
 
+  useEffect(() => {
+    setRefreshMinutes(selected.interval);
+  }, [selected.id, selected.interval]);
+
   return (
     <section className="module-view">
       <ModuleHeading
-        eyebrow="FROTA BYOD"
-        title="Seus displays, uma central."
-        description="Conecte hardware próprio, e-readers ou qualquer navegador. Sem taxa por dispositivo."
-        action={<button className="button primary" onClick={() => { const id = `device-${Date.now()}`; persistDevices([...localDevices, { id, name: "Novo display", model: "Navegador", resolution: "800 × 480", interval: 15, battery: 100, status: "online", signal: -50, sync: "local" }]); setSelectedId(id); onPair(); }}><Plus /> Conectar dispositivo</button>}
+        eyebrow="DISPLAYS LOCAIS"
+        title="Abra em qualquer navegador."
+        description="Crie perfis locais ou compartilhe um link. Sem pareamento, conta, token ou banco de dados."
+        action={<button className="button primary" onClick={() => { const id = `device-${Date.now()}`; persistDevices([...localDevices, { id, name: "Novo display", model: "Navegador", resolution: "800 × 480", interval: 15, status: "local", sync: "salvo neste navegador" }]); setSelectedId(id); onToast("Perfil de display criado localmente."); }}><Plus /> Novo perfil local</button>}
       />
       <div className="devices-layout">
         <aside className="device-list panel">
-          <header><strong>Dispositivos</strong><span>{localDevices.filter((device) => device.status === "online").length} online</span></header>
+          <header><strong>Dispositivos</strong><span>{localDevices.length} perfis locais</span></header>
           {localDevices.map((device) => (
             <button key={device.id} className={selectedId === device.id ? "active" : ""} onClick={() => setSelectedId(device.id)}>
               <span className="device-list-icon"><Monitor /></span>
@@ -465,26 +468,26 @@ export function DevicesModule({
 
         <div className="device-detail">
           <article className="panel device-hero">
-            <header><div><span className="eyebrow">DISPOSITIVO SELECIONADO</span><h2>{selected.name}</h2><p>{selected.model} · {selected.resolution}</p></div><div className={`connection-badge ${selected.status}`}><Wifi /> {selected.status}</div></header>
+            <header><div><span className="eyebrow">DISPOSITIVO SELECIONADO</span><h2>{selected.name}</h2><p>{selected.model} · {selected.resolution}</p></div><div className="connection-badge local"><Monitor /> local</div></header>
             <div className="device-preview">{preview}</div>
-            <footer><span><RefreshCw /> Estado local {selected.sync}</span><div><button className="button secondary" onClick={onDisplay}><Eye /> Abrir display</button><button className="button primary" onClick={() => onToast("Simulação local — conexão real requer backend.")}><Send /> Enviar agora</button></div></footer>
+            <footer><span><RefreshCw /> {selected.sync}</span><div><button className="button secondary" onClick={onDisplay}><Eye /> Abrir display</button><button className="button primary" onClick={onCopyLink}><Copy /> Copiar link</button></div></footer>
           </article>
 
           <div className="device-stat-grid">
-            <article className="panel"><BatteryMedium /><strong>{selected.battery}%</strong><span>Bateria</span><small>{selected.battery < 20 ? "Recarregue em breve" : "Estado saudável"}</small></article>
-            <article className="panel"><Wifi /><strong>{selected.status === "online" ? selected.signal : "—"}</strong><span>Sinal Wi-Fi</span><small>{selected.status === "online" ? "Conexão estável" : "Sem conexão"}</small></article>
-            <article className="panel"><Activity /><strong>99,8%</strong><span>Disponibilidade</span><small>Últimos 30 dias</small></article>
+            <article className="panel"><Monitor /><strong>Local</strong><span>Armazenamento</span><small>Configuração no navegador</small></article>
+            <article className="panel"><Link /><strong>URL</strong><span>Compartilhamento</span><small>Sem servidor de pareamento</small></article>
+            <article className="panel"><ShieldCheck /><strong>0</strong><span>Chaves API</span><small>Nenhum segredo necessário</small></article>
           </div>
         </div>
 
         <aside className="energy-panel panel">
-          <span className="eyebrow">BATERIA</span><h3>Estimador inteligente</h3><p>Ajuste o intervalo para comparar autonomia e atualidade.</p>
-          <div className="battery-projection"><strong>{projectedDays}</strong><span>dias estimados</span></div>
+          <span className="eyebrow">ATUALIZAÇÃO</span><h3>Intervalo local</h3><p>Ajuste a frequência usada pelo perfil e reduza chamadas às APIs públicas.</p>
+          <div className="battery-projection"><strong>{refreshMinutes}</strong><span>minutos</span></div>
           <label className="control-label" htmlFor="refresh-range">Atualizar a cada {refreshMinutes} min</label>
           <input id="refresh-range" type="range" min="5" max="60" step="5" value={refreshMinutes} onChange={(event) => setRefreshMinutes(Number(event.target.value))} />
           <div className="time-labels mono"><span>5 MIN</span><span>60 MIN</span></div>
-          <div className="energy-tip"><Zap /><span>O modo adaptativo ignora atualizações idênticas e pode ampliar a autonomia em até 22%.</span></div>
-          <button className="button secondary full" onClick={() => onToast(`Intervalo de ${refreshMinutes} minutos aplicado a ${selected.name}.`)}><Save /> Aplicar configuração</button>
+          <div className="energy-tip"><Zap /><span>O cache local e o cache da CDN reduzem chamadas repetidas às APIs e à Function.</span></div>
+          <button className="button secondary full" onClick={() => { updateSelected({ interval: refreshMinutes }); writeStoredValue("lumaboard-refresh-minutes", refreshMinutes); window.dispatchEvent(new CustomEvent("lumaboard:refresh-interval", { detail: refreshMinutes })); onToast(`Atualização automática definida para ${refreshMinutes} minutos.`); }}><Save /> Aplicar configuração</button>
           <div className="inspector-divider" />
           <label className="control-label" htmlFor="device-name">Nome</label><input id="device-name" value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} />
           <label className="control-label" htmlFor="device-model">Modelo</label><input id="device-model" value={selected.model} onChange={(event) => updateSelected({ model: event.target.value })} />
@@ -497,43 +500,32 @@ export function DevicesModule({
 }
 
 const libraryPlugins = [
-  { id: "calendar", name: "Agenda universal", category: "Produtividade", users: "4,8 mil", description: "Google, Outlook, CalDAV e iCal em uma única visualização.", icon: CalendarDays },
-  { id: "weather", name: "Clima local", category: "Informação", users: "8,2 mil", description: "Condição atual, previsão e alertas com baixo consumo.", icon: CloudSun },
-  { id: "focus", name: "Foco", category: "Produtividade", users: "3,1 mil", description: "Pomodoro, tarefas essenciais e meta do dia.", icon: Focus },
-  { id: "rss", name: "RSS limpo", category: "Informação", users: "2,7 mil", description: "Notícias sem anúncios, rastreadores ou distrações.", icon: Rss },
-  { id: "webhook", name: "Webhook", category: "Desenvolvimento", users: "1,9 mil", description: "Receba JSON de qualquer serviço e transforme em blocos.", icon: Webhook },
-  { id: "home", name: "Casa conectada", category: "Automação", users: "1,5 mil", description: "Sensores, energia e cenas do Home Assistant.", icon: Power },
-  { id: "maps", name: "Trajeto", category: "Mobilidade", users: "980", description: "Tempo de viagem, transporte e alertas de saída.", icon: MapPin },
-  { id: "custom", name: "Página web", category: "Desenvolvimento", users: "760", description: "Renderize uma URL segura ou endpoint próprio.", icon: Globe2 },
+  { id: "calendar", name: "Agenda local", category: "Produtividade", source: "localStorage", description: "Compromissos criados no navegador, sem Google, Outlook ou login.", icon: CalendarDays, core: true },
+  { id: "weather", name: "Clima local", category: "Informação", source: "Open-Meteo", description: "Condição atual, previsão e alertas de chuva sem chave de API.", icon: CloudSun, core: true },
+  { id: "focus", name: "Foco local", category: "Produtividade", source: "localStorage", description: "Pomodoro persistente, tarefa atual e duração configurável.", icon: Focus, core: true },
+  { id: "news", name: "Notícias de tecnologia", category: "Informação", source: "Hacker News", description: "Principais histórias da API oficial, normalizadas pela Function.", icon: Rss, core: false },
+  { id: "air", name: "Qualidade do ar", category: "Informação", source: "Open-Meteo", description: "AQI europeu e partículas PM2.5 para a localização do display.", icon: Activity, core: false },
+  { id: "rates", name: "Câmbio", category: "Informação", source: "Frankfurter", description: "Cotações de dólar e euro em reais, sem autenticação.", icon: Globe2, core: false },
+  { id: "holidays", name: "Feriados do Brasil", category: "Produtividade", source: "BrasilAPI", description: "Próximo feriado nacional usando uma API pública brasileira.", icon: CalendarDays, core: false },
 ];
 
 export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
-  const [enabled, setEnabled] = useState<string[]>(["calendar", "weather", "focus"]);
-  const [pluginConfigs, setPluginConfigs] = useState<Record<string, { name: string; refresh: string; url: string }>>({});
-  const [configuring, setConfiguring] = useState<(typeof libraryPlugins)[number] | null>(null);
+  const [enabled, setEnabled] = useState<string[]>(["news", "air", "rates", "holidays"]);
   const categories = ["Todos", ...Array.from(new Set(libraryPlugins.map((plugin) => plugin.category)))];
 
   useEffect(() => {
     const raw = window.localStorage.getItem("lumaboard-plugins");
     if (!raw) return;
     try {
-      const saved = JSON.parse(raw) as string[];
-      if (Array.isArray(saved)) queueMicrotask(() => setEnabled(saved));
+      const saved: unknown = JSON.parse(raw);
+      if (Array.isArray(saved)) {
+        const optionalIds = new Set(libraryPlugins.filter((plugin) => !plugin.core).map((plugin) => plugin.id));
+        queueMicrotask(() => setEnabled(saved.filter((item): item is string => typeof item === "string" && optionalIds.has(item))));
+      }
     } catch {
       // Keep defaults.
-    }
-  }, []);
-
-  useEffect(() => {
-    const saved = safeParseJSON(window.localStorage.getItem("lumaboard-plugins-config"));
-    if (saved && typeof saved === "object") {
-      queueMicrotask(() =>
-        setPluginConfigs(
-          saved as Record<string, { name: string; refresh: string; url: string }>,
-        ),
-      );
     }
   }, []);
 
@@ -545,37 +537,17 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
   const togglePlugin = (id: string) => {
     const next = enabled.includes(id) ? enabled.filter((current) => current !== id) : [...enabled, id];
     setEnabled(next);
-    window.localStorage.setItem("lumaboard-plugins", JSON.stringify(next));
-    onToast(enabled.includes(id) ? "Plugin removido da sua biblioteca." : "Plugin instalado localmente.");
-  };
-
-  const savePluginConfig = (pluginId: string) => {
-    const name = (document.getElementById("instance-name") as HTMLInputElement | null)?.value ?? "";
-    const refresh = (document.getElementById("plugin-refresh") as HTMLSelectElement | null)?.value ?? "15";
-    const url = (document.getElementById("plugin-url") as HTMLInputElement | null)?.value.trim() ?? "";
-    if (url) {
-      try {
-        const parsed = new URL(url);
-        if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("unsafe");
-      } catch {
-        onToast("URL bloqueada. Use apenas http ou https.");
-        return;
-      }
-    }
-    const next = { ...pluginConfigs, [pluginId]: { name, refresh, url } };
-    setPluginConfigs(next);
-    writeStoredValue("lumaboard-plugins", enabled);
-    window.localStorage.setItem("lumaboard-plugins-config", JSON.stringify(next));
-    setConfiguring(null);
-    onToast("Configuração local salva.");
+    writeStoredValue("lumaboard-plugins", next);
+    window.dispatchEvent(new CustomEvent("lumaboard:plugins", { detail: next }));
+    onToast(enabled.includes(id) ? "Fonte ocultada do painel." : "Fonte ativada no painel.");
   };
 
   return (
     <section className="module-view library-view">
-      <ModuleHeading eyebrow="ECOSSISTEMA ABERTO" title="Biblioteca de plugins." description="Conectores prontos e receitas abertas. Seus tokens ficam no seu navegador ou servidor." action={<button className="button primary" onClick={() => onToast("Editor de plugin privado iniciado.")}><Code2 /> Criar plugin</button>} />
+      <ModuleHeading eyebrow="ECOSSISTEMA SEM CHAVE" title="Biblioteca de fontes públicas." description="Ative ou oculte fontes selecionadas que funcionam sem conta, OAuth, token ou banco de dados." />
 
       <div className="library-toolbar panel">
-        <label className="search-field"><Search /><input aria-label="Pesquisar plugins" placeholder="Pesquisar agenda, clima, webhook…" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+        <label className="search-field"><Search /><input aria-label="Pesquisar plugins" placeholder="Pesquisar agenda, clima, câmbio…" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         <div className="category-tabs" aria-label="Categorias">
           {categories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => setCategory(item)}>{item}</button>)}
         </div>
@@ -585,29 +557,18 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
         <div className="library-grid">
           {filtered.map((plugin) => {
             const Icon = plugin.icon;
-            const active = enabled.includes(plugin.id);
+            const active = plugin.core || enabled.includes(plugin.id);
             return (
               <article className="library-card panel" key={plugin.id}>
                 <header><span className="library-icon"><Icon /></span><span className="plugin-category">{plugin.category}</span></header>
                 <h3>{plugin.name}</h3><p>{plugin.description}</p>
-                <div className="plugin-social"><span>{plugin.users} instalações</span><span>{active ? "Ativo" : "Disponível"}</span></div>
-                <footer><button className="button secondary" onClick={() => togglePlugin(plugin.id)}>{active ? <><Trash2 /> Remover</> : <><Plus /> Instalar</>}</button><button className="icon-button" aria-label={`Configurar ${plugin.name}`} onClick={() => setConfiguring(plugin)}><SlidersHorizontal /></button></footer>
+                <div className="plugin-social"><span>{plugin.source}</span><span>{plugin.core ? "Integrado" : active ? "Visível" : "Oculto"}</span></div>
+                <footer><button className="button secondary" disabled={plugin.core} onClick={() => togglePlugin(plugin.id)}>{plugin.core ? <><Check /> Essencial</> : active ? <><Trash2 /> Ocultar</> : <><Plus /> Mostrar</>}</button></footer>
               </article>
             );
           })}
         </div>
 
-        {configuring && (
-          <aside className="plugin-drawer panel">
-            <header><div><span className="eyebrow">CONFIGURAÇÃO</span><h2>{configuring.name}</h2></div><button className="icon-button" onClick={() => setConfiguring(null)} aria-label="Fechar configuração">×</button></header>
-            <div className="drawer-icon"><configuring.icon /></div>
-            <label className="control-label" htmlFor="instance-name">Nome da instância</label><input id="instance-name" defaultValue={pluginConfigs[configuring.id]?.name ?? configuring.name} />
-            <label className="control-label" htmlFor="plugin-refresh">Atualização mínima</label><select id="plugin-refresh" defaultValue={pluginConfigs[configuring.id]?.refresh ?? "15"}><option value="5">5 minutos</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60">1 hora</option></select>
-            <label className="control-label" htmlFor="plugin-url">Endpoint opcional</label><div className="input-with-icon"><Link /><input id="plugin-url" defaultValue={pluginConfigs[configuring.id]?.url ?? ""} placeholder="https://api.exemplo.com/dados" /></div>
-            <div className="privacy-note"><ShieldCheck /><span>Não armazene tokens, senhas ou segredos. Plugins com OAuth, proxy ou segredo requerem backend.</span></div>
-            <button className="button primary full" onClick={() => savePluginConfig(configuring.id)}><Save /> Salvar configuração</button>
-          </aside>
-        )}
       </div>
     </section>
   );
@@ -629,9 +590,6 @@ export function AutomationModule({
   onClearRainHistory: () => void;
 }) {
   const [state, setState] = useState<AutomationState>(defaultAutomationState);
-  const [showForm, setShowForm] = useState(false);
-  const [ruleName, setRuleName] = useState("");
-  const [localOnly, setLocalOnly] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
 
   const rules = state.rules;
@@ -652,12 +610,6 @@ export function AutomationModule({
     writeAutomationState(next);
     const nextRainRule = next.rules.find((rule) => rule.id === RAIN_RULE_ID);
     if (nextRainRule) onUpdateRainRule(nextRainRule);
-  };
-
-  const addRule = () => {
-    if (!ruleName.trim()) return;
-    persistState({ ...state, rules: [...rules, { id: `local-${Date.now()}`, name: ruleName.trim(), trigger: "Quando os dados mudarem", action: "Atualizar playlist local", enabled: true, cooldownMinutes: 60, lastEvaluatedAt: null, lastExecutedAt: null, lastSignature: null, config: { threshold: 60 } }] });
-    setRuleName(""); setShowForm(false); onToast("Automação criada e ativada.");
   };
 
   const exportBackup = () => {
@@ -687,7 +639,7 @@ export function AutomationModule({
 
   return (
     <section className="module-view">
-      <ModuleHeading eyebrow="REGRAS E PRIVACIDADE" title="Automação local-first." description="Crie comportamentos por horário, dados ou bateria. Sem backend, a avaliação roda somente enquanto a página ou PWA estiver aberta." action={<button className="button primary" onClick={() => setShowForm(true)}><Plus /> Nova automação</button>} />
+      <ModuleHeading eyebrow="REGRAS E PRIVACIDADE" title="Automação local-first." description="O alerta de chuva é avaliado no navegador enquanto a página ou PWA estiver aberta, sem fila ou processo em segundo plano." />
 
       <article className={`panel rain-alert-panel ${rainEvaluation.status === "rain-likely" ? "highlight" : ""}`}>
         <header><div><span className="eyebrow">ALERTA DE CHUVA</span><h3>{rainEvaluation.status === "rain-likely" ? "Chuva provável" : rainEvaluation.status === "no-risk" ? "Sem risco" : rainEvaluation.status === "cached" ? "Dados em cache" : rainEvaluation.status === "disabled" ? "Regra desativada" : "Monitorando"}</h3></div><span className="status-chip">{weatherStatus === "ready" ? "AO VIVO" : weatherStatus === "stale" ? "CACHE" : "INDISPONÍVEL"}</span></header>
@@ -706,20 +658,19 @@ export function AutomationModule({
         <small>{weather.city} · {weather.description} · {rainEvaluation.reason}</small>
       </article>
 
-      {showForm && <div className="inline-form panel"><div><span className="eyebrow">NOVA REGRA</span><h3>Automação rápida</h3></div><input aria-label="Nome da automação" placeholder="Ex.: Lembrete para sair" value={ruleName} onChange={(event) => setRuleName(event.target.value)} /><select aria-label="Gatilho" defaultValue="change"><option value="change">Quando os dados mudarem</option><option value="time">Em um horário</option><option value="battery">Bateria abaixo de 20%</option></select><button className="button primary" onClick={addRule}>Criar</button><button className="icon-button" aria-label="Cancelar" onClick={() => setShowForm(false)}>×</button></div>}
 
       <div className="automation-layout">
         <article className="rules-panel panel">
-          <header className="list-header"><div><strong>Regras ativas</strong><span>{rules.filter((rule) => rule.enabled).length} de {rules.length} executando</span></div><button className="icon-button compact" aria-label="Atualizar regras"><RefreshCw /></button></header>
+          <header className="list-header"><div><strong>Regra funcional</strong><span>{rainRule.enabled ? "avaliando previsão local" : "desativada"}</span></div></header>
           <div className="rules-list">
-            {rules.map((rule) => <article className={rule.id === RAIN_RULE_ID && rainEvaluation.status === "rain-likely" ? "highlight" : ""} key={rule.id}><span className="rule-icon"><Zap /></span><div><strong>{rule.name}</strong><span><AlarmClock /> {rule.trigger}</span><small><ChevronRight /> {rule.action}</small></div><label className="switch"><input type="checkbox" checked={rule.enabled} onChange={(event) => persistState({ ...state, rules: rules.map((current) => current.id === rule.id ? { ...current, enabled: event.target.checked } : current) })} /><span /></label><button className="icon-button compact" aria-label={`Excluir ${rule.name}`} onClick={() => persistState({ ...state, rules: rules.filter((current) => current.id !== rule.id) })} disabled={rule.id === RAIN_RULE_ID}><Trash2 /></button></article>)}
+            {rules.map((rule) => <article className={rule.id === RAIN_RULE_ID && rainEvaluation.status === "rain-likely" ? "highlight" : ""} key={rule.id}><span className="rule-icon"><Zap /></span><div><strong>{rule.name}</strong><span><AlarmClock /> {rule.trigger}</span><small><ChevronRight /> {rule.action}</small></div><label className="switch"><input type="checkbox" checked={rule.enabled} onChange={(event) => persistState({ ...state, rules: rules.map((current) => current.id === rule.id ? { ...current, enabled: event.target.checked } : current) })} /><span /></label></article>)}
           </div>
         </article>
 
         <aside className="settings-stack">
-          <article className="panel privacy-panel"><span className="privacy-icon"><ShieldCheck /></span><div><span className="eyebrow">PRIVACIDADE</span><h3>Modo local</h3><p>Nenhuma configuração sai deste navegador. Você pode exportar tudo quando quiser.</p></div><label className="switch"><input type="checkbox" checked={localOnly} onChange={(event) => setLocalOnly(event.target.checked)} /><span /></label></article>
+          <article className="panel privacy-panel"><span className="privacy-icon"><ShieldCheck /></span><div><span className="eyebrow">PRIVACIDADE</span><h3>Modo sempre local</h3><p>Nenhuma configuração sai deste navegador. Você pode exportar tudo quando quiser.</p></div><span className="status-chip">ATIVO</span></article>
           <article className="panel backup-panel"><span className="eyebrow">PORTABILIDADE</span><h3>Backup e restauração</h3><p>Leve playlists, plugins e regras para outra instalação LumaBoard.</p><div><button className="button secondary" onClick={exportBackup}><Download /> Exportar JSON</button><label className="button secondary upload-button"><Upload /> Importar<input type="file" accept="application/json,.json" onChange={importBackup} /></label></div></article>
-          <article className="panel endpoint-panel"><span className="eyebrow">API DO DISPOSITIVO</span><h3>Endpoint universal</h3><code className="mono">GET /api/display/:token</code><button className="button secondary full" onClick={() => { navigator.clipboard?.writeText("https://lumaboard.local/api/display/demo-token"); onToast("Endpoint copiado."); }}><Copy /> Copiar endpoint</button></article>
+          <article className="panel endpoint-panel"><span className="eyebrow">FUNCTION SEM ESTADO</span><h3>Resumo de dados públicos</h3><code className="mono">GET /api/public/summary?lat=&amp;lon=</code><button className="button secondary full" onClick={() => { navigator.clipboard?.writeText(`${window.location.origin}/api/public/summary`); onToast("Endpoint público copiado."); }}><Copy /> Copiar endpoint</button></article>
           <article className="panel backup-panel"><span className="eyebrow">HISTÓRICO</span><h3>Alertas locais</h3>{state.history.length === 0 ? <p>Nenhum alerta registrado.</p> : state.history.slice(0, 5).map((event) => <p key={event.id}>{event.message}</p>)}</article>
         </aside>
       </div>
