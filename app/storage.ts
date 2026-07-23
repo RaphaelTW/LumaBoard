@@ -1,6 +1,6 @@
 "use client";
 
-export const STORAGE_VERSION = 4;
+export const STORAGE_VERSION = 5;
 
 export type JsonObject = Record<string, unknown>;
 
@@ -20,7 +20,11 @@ export type StorageKey =
   | "lumaboard-public-explorer-v1"
   | "lumaboard-refresh-minutes"
   | "lumaboard-rules"
-  | "lumaboard-backup-meta";
+  | "lumaboard-backup-meta"
+  | "lumaboard-dashboard-v2"
+  | "lumaboard-music-v1"
+  | "lumaboard-news-preferences-v1"
+  | "lumaboard-news-state-v1";
 
 export type BackupPayload = {
   version: number;
@@ -45,6 +49,10 @@ const managedKeys: StorageKey[] = [
   "lumaboard-refresh-minutes",
   "lumaboard-rules",
   "lumaboard-backup-meta",
+  "lumaboard-dashboard-v2",
+  "lumaboard-music-v1",
+  "lumaboard-news-preferences-v1",
+  "lumaboard-news-state-v1",
 ];
 
 export function safeParseJSON(value: string | null): unknown {

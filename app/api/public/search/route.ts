@@ -65,7 +65,7 @@ async function fetchJson(url: string, timeout = 9000): Promise<unknown> {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "LumaBoard/1.4 (+https://lumaboard.netlify.app)",
+        "User-Agent": "LumaBoard/1.5 (+https://lumaboard.netlify.app)",
       },
       next: { revalidate: 86400 },
     });

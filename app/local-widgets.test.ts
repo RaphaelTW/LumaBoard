@@ -9,6 +9,8 @@ function event(patch: Partial<AgendaEvent> = {}): AgendaEvent {
     time: "09:00",
     kind: "reminder",
     recurrence: "once",
+    category: "personal",
+    color: "moss",
     completedDates: [],
     ...patch,
   };

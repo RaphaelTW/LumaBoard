@@ -50,8 +50,15 @@ import {
   WandSparkles,
   X,
   Zap,
+  Search,
+  Radio,
+  Wrench,
+  Command,
+  Bookmark,
+  BookmarkCheck,
+  EyeOff,
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   RAIN_RULE_ID,
   defaultAutomationState,
@@ -73,6 +80,9 @@ import {
   formatTimer,
   getNextOccurrence,
   recurrenceLabel,
+  agendaCategoryLabel,
+  type AgendaCategory,
+  type AgendaColor,
   type AgendaEvent,
   type AgendaKind,
   type AgendaOccurrence,
@@ -90,6 +100,10 @@ import {
   usePublicSummary,
 } from "./public-data";
 import { PublicExplorer } from "./public-explorer";
+import { MusicModule } from "./music-module";
+import { DiagnosticsModule } from "./diagnostics-module";
+import { DashboardRenderer, type DashboardRenderData } from "./dashboard-renderer";
+import { createShareUrl, readDashboardState, readMusicCache, resolveScheduledLayout, type DashboardState } from "./dashboard-config";
 
 type Theme = "paper" | "night";
 
@@ -100,6 +114,8 @@ const navItems: Array<{ id: View; label: string; icon: typeof Grid2X2 }> = [
   { id: "devices", label: "Dispositivos", icon: Monitor },
   { id: "library", label: "Biblioteca", icon: Library },
   { id: "automation", label: "Automação", icon: Zap },
+  { id: "music", label: "Música", icon: Radio },
+  { id: "diagnostics", label: "Diagnóstico", icon: Wrench },
 ];
 
 const plugins = [
@@ -360,6 +376,8 @@ function normalizeSharedAgendaEvent(value: unknown): AgendaEvent | null {
       event.recurrence === "yearly"
         ? event.recurrence
         : "once",
+    category: event.category === "work" || event.category === "health" || event.category === "finance" || event.category === "study" || event.category === "other" ? event.category : "personal",
+    color: event.color === "amber" || event.color === "cyan" || event.color === "rose" || event.color === "slate" ? event.color : "moss",
     completedDates: Array.isArray(event.completedDates)
       ? event.completedDates.filter((item): item is string => typeof item === "string")
       : [],
@@ -379,19 +397,6 @@ function isSharedFocus(value: unknown): value is FocusSession {
     typeof focus.running === "boolean" &&
     (focus.endsAt === null || (typeof focus.endsAt === "number" && Number.isFinite(focus.endsAt)))
   );
-}
-
-function encodeDisplayConfig(config: SharedDisplayConfig): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(config));
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return window
-    .btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
 }
 
 function decodeDisplayConfig(encoded: string): SharedDisplayConfig | null {
@@ -439,6 +444,7 @@ function LocalWidgetsPanel({
   events,
   nextEvent,
   dueEvents,
+  overdueTasks,
   notificationPermission,
   focus,
   todayKey,
@@ -453,8 +459,9 @@ function LocalWidgetsPanel({
   onToast,
 }: {
   events: AgendaEvent[];
-  nextEvent: AgendaEvent | null;
+  nextEvent: AgendaOccurrence | null;
   dueEvents: AgendaOccurrence[];
+  overdueTasks: AgendaOccurrence[];
   notificationPermission: NotificationPermission | "unsupported";
   focus: FocusSession;
   todayKey: string;
@@ -473,10 +480,12 @@ function LocalWidgetsPanel({
   const [time, setTime] = useState("09:00");
   const [kind, setKind] = useState<AgendaKind>("reminder");
   const [recurrence, setRecurrence] = useState<AgendaRecurrence>("once");
+  const [category, setCategory] = useState<AgendaCategory>("personal");
+  const [color, setColor] = useState<AgendaColor>("moss");
 
   const submitEvent = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!onAddEvent({ title, date, time, kind, recurrence })) {
+    if (!onAddEvent({ title, date, time, kind, recurrence, category, color })) {
       onToast("Preencha título, data e horário válidos.");
       return;
     }
@@ -496,7 +505,7 @@ function LocalWidgetsPanel({
       <header className="section-heading">
         <div>
           <span className="eyebrow">MEMÓRIA LOCAL</span>
-          <h2>Agenda recorrente, tarefas e foco.</h2>
+          <h2>Agenda recorrente, categorias e foco.</h2>
         </div>
         <div className="local-heading-actions">
           <span className="status-chip"><span className="status-dot" /> LOCALSTORAGE</span>
@@ -505,6 +514,8 @@ function LocalWidgetsPanel({
           </button>
         </div>
       </header>
+
+      {overdueTasks.length > 0 && <div className="overdue-counter panel"><Bell /><div><strong>{overdueTasks.length} tarefa(s) atrasada(s)</strong><span>{overdueTasks.slice(0, 3).map((item) => `${formatPublicDate(item.occurrenceDate)} · ${item.title}`).join(" • ")}</span></div></div>}
 
       {dueEvents.length > 0 && (
         <div className="due-events panel" role="status">
@@ -515,7 +526,7 @@ function LocalWidgetsPanel({
 
       <div className="local-widgets-grid">
         <article className="panel local-widget-card agenda-control-card">
-          <header><CalendarDays /><div><strong>Agenda local</strong><span>{nextEvent ? `Próximo: ${nextEvent.time} · ${formatPublicDate(nextEvent.date)}` : "Nenhum compromisso futuro"}</span></div></header>
+          <header><CalendarDays /><div><strong>Agenda local</strong><span>{nextEvent ? `Próximo: ${nextEvent.time} · ${formatPublicDate(nextEvent.occurrenceDate)}` : "Nenhum compromisso futuro"}</span></div></header>
           <form className="event-form recurring-event-form" onSubmit={submitEvent}>
             <input aria-label="Título" placeholder="Novo lembrete ou tarefa" value={title} onChange={(event) => setTitle(event.target.value)} />
             <select aria-label="Tipo" value={kind} onChange={(event) => setKind(event.target.value as AgendaKind)}>
@@ -528,6 +539,12 @@ function LocalWidgetsPanel({
               <option value="weekly">Toda semana</option>
               <option value="monthly">Todo mês</option>
               <option value="yearly">Todo ano</option>
+            </select>
+            <select aria-label="Categoria" value={category} onChange={(event) => setCategory(event.target.value as AgendaCategory)}>
+              <option value="personal">Pessoal</option><option value="work">Trabalho</option><option value="health">Saúde</option><option value="finance">Finanças</option><option value="study">Estudos</option><option value="other">Outro</option>
+            </select>
+            <select aria-label="Cor" value={color} onChange={(event) => setColor(event.target.value as AgendaColor)}>
+              <option value="moss">Verde</option><option value="amber">Âmbar</option><option value="cyan">Azul</option><option value="rose">Rosa</option><option value="slate">Cinza</option>
             </select>
             <input aria-label="Data inicial" type="date" min={todayKey} value={date} onChange={(event) => setDate(event.target.value)} />
             <input aria-label="Horário" type="time" value={time} onChange={(event) => setTime(event.target.value)} />
@@ -550,9 +567,9 @@ function LocalWidgetsPanel({
               const occurrenceDate = next?.occurrenceDate ?? item.date;
               const finished = !next && item.recurrence === "once" && item.completedDates.includes(item.date);
               return (
-                <div className={finished ? "is-completed" : ""} key={item.id}>
+                <div className={`${finished ? "is-completed" : ""} event-color-${item.color}`} key={item.id}>
                   <span className="mono">{formatPublicDate(occurrenceDate)} · {item.time}</span>
-                  <div className="event-copy"><strong>{item.title}</strong><small>{item.kind === "task" ? "Tarefa" : "Lembrete"} · {recurrenceLabel(item.recurrence)}</small></div>
+                  <div className="event-copy"><strong>{item.title}</strong><small>{item.kind === "task" ? "Tarefa" : "Lembrete"} · {agendaCategoryLabel(item.category)} · {recurrenceLabel(item.recurrence)}</small></div>
                   <div className="event-actions">
                     <button className="icon-button compact" aria-label={finished ? `Reabrir ${item.title}` : `Concluir ${item.title}`} onClick={() => onToggleEventCompleted(item.id, occurrenceDate)}><Check /></button>
                     <button className="icon-button compact" aria-label={`Excluir ${item.title}`} onClick={() => onRemoveEvent(item.id)}><Trash2 /></button>
@@ -635,6 +652,58 @@ function formatNewsDate(value: string | null): string {
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
+
+type NewsPreferences = {
+  source: string;
+  intervalSeconds: number;
+  imageOnly: boolean;
+  savedOnly: boolean;
+};
+
+type NewsState = {
+  readIds: string[];
+  savedIds: string[];
+};
+
+function readNewsPreferences(label: string): NewsPreferences {
+  const fallback: NewsPreferences = { source: "all", intervalSeconds: 8, imageOnly: false, savedOnly: false };
+  if (typeof window === "undefined") return fallback;
+  try {
+    const all = JSON.parse(window.localStorage.getItem("lumaboard-news-preferences-v1") ?? "{}") as Record<string, Partial<NewsPreferences>>;
+    const value = all[label] ?? {};
+    return {
+      source: typeof value.source === "string" ? value.source : "all",
+      intervalSeconds: [5, 8, 15, 30].includes(Number(value.intervalSeconds)) ? Number(value.intervalSeconds) : 8,
+      imageOnly: value.imageOnly === true,
+      savedOnly: value.savedOnly === true,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writeNewsPreferences(label: string, value: NewsPreferences) {
+  try {
+    const all = JSON.parse(window.localStorage.getItem("lumaboard-news-preferences-v1") ?? "{}") as Record<string, NewsPreferences>;
+    all[label] = value;
+    window.localStorage.setItem("lumaboard-news-preferences-v1", JSON.stringify(all));
+  } catch {
+    window.localStorage.setItem("lumaboard-news-preferences-v1", JSON.stringify({ [label]: value }));
+  }
+}
+
+function readNewsState(): NewsState {
+  try {
+    const value = JSON.parse(window.localStorage.getItem("lumaboard-news-state-v1") ?? "{}") as Partial<NewsState>;
+    return {
+      readIds: Array.isArray(value.readIds) ? value.readIds.filter((item): item is string => typeof item === "string") : [],
+      savedIds: Array.isArray(value.savedIds) ? value.savedIds.filter((item): item is string => typeof item === "string") : [],
+    };
+  } catch {
+    return { readIds: [], savedIds: [] };
+  }
+}
+
 function NewsCarousel({
   label,
   items,
@@ -649,35 +718,107 @@ function NewsCarousel({
   secondary?: PublicAnimeItem[];
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const active = items.length ? items[activeIndex % items.length] : null;
+  const [preferences, setPreferences] = useState<NewsPreferences>(() => ({
+    source: "all",
+    intervalSeconds: 8,
+    imageOnly: false,
+    savedOnly: false,
+  }));
+  const [newsState, setNewsState] = useState<NewsState>({ readIds: [], savedIds: [] });
 
   useEffect(() => {
-    if (items.length <= 1) return;
+    queueMicrotask(() => {
+      setPreferences(readNewsPreferences(label));
+      setNewsState(readNewsState());
+    });
+  }, [label]);
+
+  const sources = useMemo(
+    () => Array.from(new Set(items.map((item) => item.source).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [items],
+  );
+
+  const visibleItems = useMemo(() => items.filter((item) => {
+    if (preferences.source !== "all" && item.source !== preferences.source) return false;
+    if (preferences.imageOnly && !item.imageUrl) return false;
+    if (preferences.savedOnly && !newsState.savedIds.includes(item.id)) return false;
+    return true;
+  }), [items, newsState.savedIds, preferences]);
+
+  const active = visibleItems.length ? visibleItems[activeIndex % visibleItems.length] : null;
+
+  useEffect(() => {
+    if (visibleItems.length <= 1) return;
     const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % items.length);
-    }, 8000);
+      setActiveIndex((current) => (current + 1) % visibleItems.length);
+    }, preferences.intervalSeconds * 1000);
     return () => window.clearInterval(timer);
-  }, [items.length]);
+  }, [preferences.intervalSeconds, visibleItems.length]);
 
   useEffect(() => {
-    if (activeIndex >= items.length) queueMicrotask(() => setActiveIndex(0));
-  }, [activeIndex, items.length]);
+    if (activeIndex >= visibleItems.length) queueMicrotask(() => setActiveIndex(0));
+  }, [activeIndex, visibleItems.length]);
 
-  const move = (direction: -1 | 1) => {
-    if (!items.length) return;
-    setActiveIndex((current) => (current + direction + items.length) % items.length);
+  const updatePreferences = (patch: Partial<NewsPreferences>) => {
+    const next = { ...preferences, ...patch };
+    setPreferences(next);
+    writeNewsPreferences(label, next);
+    setActiveIndex(0);
   };
 
+  const updateNewsState = (patch: Partial<NewsState>) => {
+    const next = { ...newsState, ...patch };
+    setNewsState(next);
+    window.localStorage.setItem("lumaboard-news-state-v1", JSON.stringify(next));
+  };
+
+  const markRead = (id: string) => {
+    if (newsState.readIds.includes(id)) return;
+    updateNewsState({ readIds: [...newsState.readIds, id].slice(-300) });
+  };
+
+  const toggleSaved = (id: string) => {
+    updateNewsState({
+      savedIds: newsState.savedIds.includes(id)
+        ? newsState.savedIds.filter((item) => item !== id)
+        : [...newsState.savedIds, id].slice(-150),
+    });
+  };
+
+  const move = (direction: -1 | 1) => {
+    if (!visibleItems.length) return;
+    setActiveIndex((current) => (current + direction + visibleItems.length) % visibleItems.length);
+  };
+
+  const isRead = active ? newsState.readIds.includes(active.id) : false;
+  const isSaved = active ? newsState.savedIds.includes(active.id) : false;
+
   return (
-    <article className="panel public-data-card news-carousel-card">
+    <article className={`panel public-data-card news-carousel-card ${isRead ? "is-read" : ""}`}>
       <header className="news-carousel-header">
         <span className="metric-icon">{accent}</span>
-        <div><span>{label}</span><small>{items.length ? `${activeIndex + 1} de ${items.length}` : "Sem itens"}</small></div>
+        <div><span>{label}</span><small>{visibleItems.length ? `${activeIndex + 1} de ${visibleItems.length}` : "Sem itens"}</small></div>
         <div className="news-carousel-controls">
-          <button className="icon-button compact" aria-label={`Notícia anterior de ${label}`} onClick={() => move(-1)} disabled={items.length <= 1}><ChevronLeft /></button>
-          <button className="icon-button compact" aria-label={`Próxima notícia de ${label}`} onClick={() => move(1)} disabled={items.length <= 1}><ChevronRight /></button>
+          <button className="icon-button compact" aria-label={`Notícia anterior de ${label}`} onClick={() => move(-1)} disabled={visibleItems.length <= 1}><ChevronLeft /></button>
+          <button className="icon-button compact" aria-label={`Próxima notícia de ${label}`} onClick={() => move(1)} disabled={visibleItems.length <= 1}><ChevronRight /></button>
         </div>
       </header>
+
+      <div className="news-toolbar">
+        <select aria-label={`Filtrar fontes de ${label}`} value={preferences.source} onChange={(event) => updatePreferences({ source: event.target.value })}>
+          <option value="all">Todas as fontes</option>
+          {sources.map((source) => <option key={source} value={source}>{source}</option>)}
+        </select>
+        <select aria-label={`Velocidade do carrossel de ${label}`} value={preferences.intervalSeconds} onChange={(event) => updatePreferences({ intervalSeconds: Number(event.target.value) })}>
+          <option value="5">5 segundos</option>
+          <option value="8">8 segundos</option>
+          <option value="15">15 segundos</option>
+          <option value="30">30 segundos</option>
+        </select>
+        <button className={`news-tool-button ${preferences.imageOnly ? "active" : ""}`} onClick={() => updatePreferences({ imageOnly: !preferences.imageOnly })}><EyeOff /> Com imagem</button>
+        <button className={`news-tool-button ${preferences.savedOnly ? "active" : ""}`} onClick={() => updatePreferences({ savedOnly: !preferences.savedOnly })}>{preferences.savedOnly ? <BookmarkCheck /> : <Bookmark />} Salvas</button>
+      </div>
+
       {active ? (
         <div className="news-carousel-slide" aria-live="polite">
           {active.imageUrl && (
@@ -686,15 +827,23 @@ function NewsCarousel({
             <img src={active.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
           )}
           <div className="news-carousel-copy">
+            <div className="news-item-state">
+              {isRead && <span>LIDA</span>}
+              {isSaved && <span>SALVA</span>}
+            </div>
             <strong>{active.title}</strong>
             <span>{active.source} · {formatNewsDate(active.publishedAt)}{active.score > 0 ? ` · ${active.score} interações` : ""}</span>
-            <a className="button secondary news-open-button" href={active.url} target="_blank" rel="noreferrer">Abrir notícia <ExternalLink /></a>
+            <div className="news-action-row">
+              <a className="button secondary news-open-button" href={active.url} target="_blank" rel="noreferrer" onClick={() => markRead(active.id)}>Abrir notícia <ExternalLink /></a>
+              <button className={`icon-button ${isSaved ? "active" : ""}`} aria-label={isSaved ? "Remover notícia dos salvos" : "Salvar notícia"} onClick={() => toggleSaved(active.id)}>{isSaved ? <BookmarkCheck /> : <Bookmark />}</button>
+            </div>
           </div>
         </div>
-      ) : <div className="news-carousel-empty">{emptyMessage}</div>}
-      {items.length > 1 && (
+      ) : <div className="news-carousel-empty">{preferences.savedOnly ? "Nenhuma notícia salva neste filtro." : emptyMessage}</div>}
+
+      {visibleItems.length > 1 && (
         <div className="news-carousel-dots" aria-label={`Selecionar notícia de ${label}`}>
-          {items.map((item, index) => <button key={item.id} className={index === activeIndex ? "active" : ""} aria-label={`Abrir notícia ${index + 1}`} onClick={() => setActiveIndex(index)} />)}
+          {visibleItems.map((item, index) => <button key={item.id} className={index === activeIndex ? "active" : ""} aria-label={`Abrir notícia ${index + 1}`} onClick={() => setActiveIndex(index)} />)}
         </div>
       )}
       {secondary && secondary.length > 0 && (
@@ -704,6 +853,48 @@ function NewsCarousel({
         </div>
       )}
     </article>
+  );
+}
+
+function GlobalSearchDialog({
+  events,
+  summary,
+  layouts,
+  onNavigate,
+  onClose,
+}: {
+  events: AgendaEvent[];
+  summary: PublicSummary;
+  layouts: DashboardState["layouts"];
+  onNavigate: (view: View) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const normalized = query.trim().toLocaleLowerCase("pt-BR");
+  const navigationResults = navItems.filter((item) => !normalized || item.label.toLocaleLowerCase("pt-BR").includes(normalized));
+  const eventResults = events.filter((item) => item.title.toLocaleLowerCase("pt-BR").includes(normalized)).slice(0, 5);
+  const newsResults = [...summary.news, ...summary.anime.news].filter((item) => item.title.toLocaleLowerCase("pt-BR").includes(normalized)).slice(0, 6);
+  const layoutResults = layouts.filter((item) => item.name.toLocaleLowerCase("pt-BR").includes(normalized)).slice(0, 5);
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop global-search-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+      <section className="global-search-dialog" role="dialog" aria-modal="true" aria-label="Busca global">
+        <header><Search /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar telas, agenda, notícias…" /><kbd>ESC</kbd></header>
+        <div className="global-search-results">
+          <div><span className="eyebrow">NAVEGAÇÃO</span>{navigationResults.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => { onNavigate(id); onClose(); }}><Icon /><strong>{label}</strong><small>Abrir área</small></button>)}</div>
+          {eventResults.length > 0 && <div><span className="eyebrow">AGENDA</span>{eventResults.map((item) => <button key={item.id} onClick={() => { onNavigate("overview"); onClose(); window.setTimeout(() => document.querySelector(".local-data-section")?.scrollIntoView({ behavior: "smooth" }), 50); }}><CalendarDays /><strong>{item.title}</strong><small>{formatPublicDate(item.date)} · {item.time}</small></button>)}</div>}
+          {layoutResults.length > 0 && <div><span className="eyebrow">LAYOUTS</span>{layoutResults.map((layout) => <button key={layout.id} onClick={() => { onNavigate("studio"); onClose(); }}><Columns3 /><strong>{layout.name}</strong><small>{layout.widgets.length} widgets</small></button>)}</div>}
+          {newsResults.length > 0 && <div><span className="eyebrow">NOTÍCIAS</span>{newsResults.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer"><Newspaper /><strong>{item.title}</strong><small>{item.source}</small></a>)}</div>}
+          {normalized && navigationResults.length + eventResults.length + layoutResults.length + newsResults.length === 0 && <p>Nenhum resultado local encontrado.</p>}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -767,6 +958,9 @@ export function LumaBoardApp() {
   const [modal, setModal] = useState<"create" | "device" | "preview" | null>(
     null,
   );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
+  const [musicCache, setMusicCache] = useState(() => readMusicCache());
   const [enabledPublicPlugins, setEnabledPublicPlugins] = useState<string[]>(DEFAULT_PUBLIC_PLUGINS);
   const {
     weather,
@@ -802,6 +996,16 @@ export function LumaBoardApp() {
   );
   const previewEvent = sharedConfig?.event ?? localWidgets.nextEvent;
   const previewFocus = sharedConfig?.focus ?? localWidgets.focus;
+  const dashboardLayout = dashboardState ? resolveScheduledLayout(dashboardState, now) : null;
+  const dashboardRenderData = useMemo<DashboardRenderData>(() => ({
+    now,
+    weather,
+    focus: localWidgets.focus,
+    upcomingEvents: localWidgets.upcomingEvents,
+    overdueCount: localWidgets.overdueTasks.length,
+    summary: publicSummary,
+    music: musicCache,
+  }), [now, weather, localWidgets.focus, localWidgets.upcomingEvents, localWidgets.overdueTasks.length, publicSummary, musicCache]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -811,7 +1015,11 @@ export function LumaBoardApp() {
   useEffect(() => {
     const saved = window.localStorage.getItem("lumaboard-theme");
     if (saved === "night") queueMicrotask(() => setTheme("night"));
-    queueMicrotask(() => setAutomationState(readAutomationState()));
+    queueMicrotask(() => {
+      setAutomationState(readAutomationState());
+      setDashboardState(readDashboardState());
+      setMusicCache(readMusicCache());
+    });
     const params = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     const encodedConfig = hashParams.get("config");
@@ -820,6 +1028,27 @@ export function LumaBoardApp() {
       if (decoded) queueMicrotask(() => setSharedConfig(decoded));
     }
     if (params.get("display") === "1") queueMicrotask(() => setDisplayMode(true));
+  }, []);
+
+  useEffect(() => {
+    const syncDashboard = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail) setDashboardState(event.detail as DashboardState);
+      else setDashboardState(readDashboardState());
+    };
+    const syncMusic = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail) setMusicCache(event.detail);
+      else setMusicCache(readMusicCache());
+    };
+    window.addEventListener("lumaboard:dashboard", syncDashboard);
+    window.addEventListener("lumaboard:music", syncMusic);
+    window.addEventListener("storage", syncDashboard);
+    window.addEventListener("storage", syncMusic);
+    return () => {
+      window.removeEventListener("lumaboard:dashboard", syncDashboard);
+      window.removeEventListener("lumaboard:music", syncMusic);
+      window.removeEventListener("storage", syncDashboard);
+      window.removeEventListener("storage", syncMusic);
+    };
   }, []);
 
   useEffect(() => {
@@ -858,7 +1087,7 @@ export function LumaBoardApp() {
     [],
   );
 
-  const refreshDevice = () => {
+  const refreshDevice = useCallback(() => {
     if (refreshing) return;
     setRefreshing(true);
     void Promise.all([refreshWeather(), refreshPublicData()]).finally(() => {
@@ -867,18 +1096,16 @@ export function LumaBoardApp() {
         setToast("Clima, APIs públicas e prévia atualizados.");
       }, 420);
     });
-  };
+  }, [refreshPublicData, refreshWeather, refreshing]);
 
   const copyDisplayLink = async () => {
-    const payload = encodeDisplayConfig({ event: localWidgets.nextEvent, focus: localWidgets.focus });
-    const url = new URL(window.location.origin + window.location.pathname);
-    url.searchParams.set("display", "1");
-    url.hash = `config=${payload}`;
+    const state = dashboardState ?? readDashboardState();
+    const url = createShareUrl(state, window.location.origin);
     try {
-      await navigator.clipboard.writeText(url.toString());
-      setToast("Link do display copiado. Abra em outro navegador.");
+      await navigator.clipboard.writeText(url);
+      setToast("Link completo do display copiado.");
     } catch {
-      window.prompt("Copie o link do display:", url.toString());
+      window.prompt("Copie o link do display:", url);
     }
   };
 
@@ -927,6 +1154,32 @@ export function LumaBoardApp() {
     }
   }, [weather, weatherStatus]);
 
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.tagName === "SELECT";
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+        return;
+      }
+      if (editing || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "/") {
+        event.preventDefault();
+        setSearchOpen(true);
+      } else if (event.key.toLocaleLowerCase() === "d") {
+        window.open("/display", "_blank", "noopener,noreferrer");
+      } else if (event.key.toLocaleLowerCase() === "r") {
+        refreshDevice();
+      } else if (/^[1-8]$/.test(event.key)) {
+        const item = navItems[Number(event.key) - 1];
+        if (item) setActiveView(item.id);
+      }
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [refreshDevice]);
+
   const toggleTheme = () => {
     const next = theme === "paper" ? "night" : "paper";
     setTheme(next);
@@ -935,11 +1188,15 @@ export function LumaBoardApp() {
 
   if (displayMode) {
     return (
-      <div className="app-shell display-mode" data-theme={theme}>
+      <div className="app-shell display-mode display-mode-v2" data-theme={theme}>
         <button className="display-exit button secondary" onClick={() => setDisplayMode(false)}>
           <X /> Sair do modo display
         </button>
-        <div className="display-canvas"><EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} /></div>
+        <div className="display-canvas">
+          {dashboardState && dashboardLayout
+            ? <DashboardRenderer layout={dashboardLayout} settings={dashboardState.settings} data={dashboardRenderData} className="embedded-display-preview" />
+            : <EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} />}
+        </div>
       </div>
     );
   }
@@ -985,6 +1242,9 @@ export function LumaBoardApp() {
             LumaBoard / {navItems.find((item) => item.id === activeView)?.label}
           </div>
           <div className="topbar-actions">
+            <button className="global-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Abrir busca global">
+              <Search /><span>Buscar no LumaBoard</span><kbd><Command /> K</kbd>
+            </button>
             <button
               className="theme-toggle"
               onClick={toggleTheme}
@@ -1091,7 +1351,7 @@ export function LumaBoardApp() {
                 </header>
                 <div className="schedule-time">
                   <strong className="mono">{localWidgets.nextEvent?.time ?? "--:--"}</strong>
-                  <span>{localWidgets.nextEvent ? formatPublicDate(localWidgets.nextEvent.date) : "Adicione um evento abaixo"}</span>
+                  <span>{localWidgets.nextEvent ? formatPublicDate(localWidgets.nextEvent.occurrenceDate) : "Adicione um evento abaixo"}</span>
                 </div>
                 <div className="progress"><i /></div>
                 <button className="text-button" onClick={() => document.querySelector(".local-data-section")?.scrollIntoView({ behavior: "smooth" })}>Editar agenda local <ChevronRight /></button>
@@ -1103,6 +1363,7 @@ export function LumaBoardApp() {
             events={localWidgets.events}
             nextEvent={localWidgets.nextEvent}
             dueEvents={localWidgets.dueEvents}
+            overdueTasks={localWidgets.overdueTasks}
             notificationPermission={localWidgets.notificationPermission}
             focus={localWidgets.focus}
             todayKey={localWidgets.todayKey}
@@ -1158,13 +1419,13 @@ export function LumaBoardApp() {
           </section>
           </div>
 
-          {activeView === "studio" && <StudioModule preview={<EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} />} onToast={setToast} />}
+          {activeView === "studio" && <StudioModule renderData={dashboardRenderData} onToast={setToast} />}
           {activeView === "playlists" && <PlaylistsModule onToast={setToast} city={weather.city} />}
           {activeView === "devices" && (
             <DevicesModule
-              preview={<EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} />}
+              preview={dashboardState && dashboardLayout ? <DashboardRenderer layout={dashboardLayout} settings={dashboardState.settings} data={dashboardRenderData} className="device-dashboard-preview" /> : <EInkPreview weather={weather} now={now} event={previewEvent} focus={previewFocus} />}
               onToast={setToast}
-              onDisplay={() => setDisplayMode(true)}
+              onDisplay={() => window.open("/display", "_blank", "noopener,noreferrer")}
               onCopyLink={() => void copyDisplayLink()}
             />
           )}
@@ -1177,6 +1438,16 @@ export function LumaBoardApp() {
               rainEvaluation={rainEvaluation}
               onUpdateRainRule={updateRainRule}
               onClearRainHistory={clearRainHistory}
+            />
+          )}
+          {activeView === "music" && <MusicModule onToast={setToast} />}
+          {activeView === "diagnostics" && (
+            <DiagnosticsModule
+              weatherStatus={weatherStatus}
+              publicStatus={publicDataStatus}
+              summary={publicSummary}
+              onRefresh={async () => { await Promise.all([refreshWeather(true), refreshPublicData()]); }}
+              onToast={setToast}
             />
           )}
         </main>
@@ -1201,18 +1472,33 @@ export function LumaBoardApp() {
       {modal === "device" && (
         <Modal title="Abrir em outro display" onClose={() => setModal(null)}>
           <div className="pairing-flow">
-            <div className="pairing-copy"><span className="pair-icon"><Monitor /></span><div><h3>Compartilhe um link, sem conta ou banco</h3><p>O link leva o próximo compromisso e a sessão de foco. Clima e APIs públicas são atualizados no próprio aparelho que abrir a tela.</p></div></div>
+            <div className="pairing-copy"><span className="pair-icon"><Monitor /></span><div><h3>Compartilhe layouts e programação sem conta</h3><p>O link transporta os layouts, widgets e playlists. Agenda, preferências pessoais e caches permanecem somente no navegador de origem.</p></div></div>
             <div className="privacy-note"><Copy /><span>A configuração vai no fragmento <code>#config</code> da URL e não é armazenada pelo Netlify.</span></div>
             <button className="button primary full" onClick={() => { void copyDisplayLink(); setModal(null); }}><Copy /> Copiar link do display</button>
-            <button className="button secondary full" onClick={() => { setModal(null); setDisplayMode(true); }}><Monitor /> Abrir neste navegador</button>
+            <a className="button secondary full" href="/display" target="_blank" rel="noreferrer"><Monitor /> Abrir modo display</a>
           </div>
         </Modal>
       )}
 
       {modal === "preview" && (
-        <Modal title="Prévia 800 × 480" onClose={() => setModal(null)}>
-          <div className="expanded-preview"><EInkPreview refreshing={refreshing} weather={weather} now={now} event={previewEvent} focus={previewFocus} /><div className="expanded-actions"><span className="mono">PALETA: 4 CINZAS</span><button className="button primary" onClick={refreshDevice}><RefreshCw /> Atualizar tela</button></div></div>
+        <Modal title={dashboardLayout?.name ?? "Prévia 800 × 480"} onClose={() => setModal(null)}>
+          <div className="expanded-preview">
+            {dashboardState && dashboardLayout
+              ? <DashboardRenderer layout={dashboardLayout} settings={dashboardState.settings} data={dashboardRenderData} className="modal-dashboard-preview" />
+              : <EInkPreview refreshing={refreshing} weather={weather} now={now} event={previewEvent} focus={previewFocus} />}
+            <div className="expanded-actions"><span className="mono">LAYOUT LOCAL-FIRST</span><button className="button primary" onClick={refreshDevice}><RefreshCw /> Atualizar dados</button></div>
+          </div>
         </Modal>
+      )}
+
+      {searchOpen && (
+        <GlobalSearchDialog
+          events={localWidgets.events}
+          summary={publicSummary}
+          layouts={dashboardState?.layouts ?? []}
+          onNavigate={setActiveView}
+          onClose={() => setSearchOpen(false)}
+        />
       )}
 
       <div className={`toast ${toast ? "visible" : ""}`} role="status" aria-live="polite">

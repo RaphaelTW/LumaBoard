@@ -9,6 +9,8 @@ const FOCUS_KEY = "lumaboard-focus";
 
 export type AgendaKind = "reminder" | "task";
 export type AgendaRecurrence = "once" | "daily" | "weekly" | "monthly" | "yearly";
+export type AgendaCategory = "personal" | "work" | "health" | "finance" | "study" | "other";
+export type AgendaColor = "moss" | "amber" | "cyan" | "rose" | "slate";
 
 export type AgendaEvent = {
   id: string;
@@ -17,6 +19,8 @@ export type AgendaEvent = {
   time: string;
   kind: AgendaKind;
   recurrence: AgendaRecurrence;
+  category: AgendaCategory;
+  color: AgendaColor;
   completedDates: string[];
 };
 
@@ -64,10 +68,12 @@ function normalizeAgendaEvent(value: unknown): AgendaEvent | null {
     value.recurrence === "yearly"
       ? value.recurrence
       : "once";
+  const category: AgendaCategory = value.category === "work" || value.category === "health" || value.category === "finance" || value.category === "study" || value.category === "other" ? value.category : "personal";
+  const color: AgendaColor = value.color === "amber" || value.color === "cyan" || value.color === "rose" || value.color === "slate" ? value.color : "moss";
   const completedDates = Array.isArray(value.completedDates)
     ? Array.from(new Set(value.completedDates.filter(isDateKey))).slice(-400)
     : [];
-  return { id, title, date: value.date, time: value.time, kind, recurrence, completedDates };
+  return { id, title, date: value.date, time: value.time, kind, recurrence, category, color, completedDates };
 }
 
 function normalizeAgenda(value: unknown): AgendaEvent[] {
@@ -130,6 +136,19 @@ function addDays(dateKey: string, amount: number): string {
   return localDateKey(date);
 }
 
+
+export function agendaCategoryLabel(value: AgendaCategory): string {
+  const labels: Record<AgendaCategory, string> = {
+    personal: "Pessoal",
+    work: "Trabalho",
+    health: "Saúde",
+    finance: "Finanças",
+    study: "Estudos",
+    other: "Outro",
+  };
+  return labels[value];
+}
+
 export function recurrenceLabel(value: AgendaRecurrence): string {
   const labels: Record<AgendaRecurrence, string> = {
     once: "Uma vez",
@@ -185,6 +204,35 @@ export function getNextOccurrence(event: AgendaEvent, fromDate = localDateKey())
     candidate = occurrenceOnOrAfter(event, addDays(candidate, 1));
   }
   return null;
+}
+
+export function getPreviousOccurrence(event: AgendaEvent, onOrBefore = localDateKey()): AgendaOccurrence | null {
+  const base = parseDateKey(event.date);
+  const target = parseDateKey(onOrBefore);
+  if (target < base) return null;
+  let candidate: string | null = null;
+  if (event.recurrence === "once") candidate = event.date <= onOrBefore ? event.date : null;
+  else if (event.recurrence === "daily") candidate = onOrBefore;
+  else if (event.recurrence === "weekly") {
+    const elapsedDays = dateSerial(onOrBefore) - dateSerial(event.date);
+    candidate = addDays(onOrBefore, -(((elapsedDays % 7) + 7) % 7));
+  } else if (event.recurrence === "monthly") {
+    const day = base.getDate();
+    for (let offset = 0; offset < 36 && !candidate; offset += 1) {
+      const monthIndex = target.getMonth() - offset;
+      const year = target.getFullYear() + Math.floor(monthIndex / 12);
+      const normalizedMonth = ((monthIndex % 12) + 12) % 12;
+      const value = validDateKey(year, normalizedMonth, day);
+      if (value && value <= onOrBefore && value >= event.date) candidate = value;
+    }
+  } else {
+    for (let year = target.getFullYear(); year >= base.getFullYear() && !candidate; year -= 1) {
+      const value = validDateKey(year, base.getMonth(), base.getDate());
+      if (value && value <= onOrBefore && value >= event.date) candidate = value;
+    }
+  }
+  if (!candidate || event.completedDates.includes(candidate)) return null;
+  return { ...event, date: candidate, occurrenceDate: candidate, completed: false };
 }
 
 function normalizeFocus(value: FocusSession): FocusSession {
@@ -388,10 +436,20 @@ export function useLocalWidgets() {
     })
     .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   const nextEvent = upcomingEvents[0] ?? null;
+  const overdueTasks = events
+    .filter((event) => event.kind === "task")
+    .flatMap((event) => {
+      const occurrence = getPreviousOccurrence(event, today);
+      if (!occurrence) return [];
+      const isPast = occurrence.occurrenceDate < today || occurrence.time <= currentTime;
+      return isPast ? [occurrence] : [];
+    })
+    .sort((a, b) => `${a.occurrenceDate}T${a.time}`.localeCompare(`${b.occurrenceDate}T${b.time}`));
 
   return {
     events,
     upcomingEvents,
+    overdueTasks,
     nextEvent,
     dueEvents,
     notificationPermission,

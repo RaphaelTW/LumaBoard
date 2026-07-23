@@ -8,7 +8,7 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.4** monta e exibe conteúdo para navegadores, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, Pomodoro, playlists, fontes, pesquisas, localização escolhida e preferências ficam no `localStorage` do navegador. O servidor não mantém sessão e não grava SQLite, JSON ou banco.
+O **LumaBoard 1.5** monta e exibe conteúdo para navegadores, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, Pomodoro, playlists, fontes, pesquisas, localização escolhida e preferências ficam no `localStorage` do navegador. O servidor não mantém sessão e não grava SQLite, JSON ou banco.
 
 ## Princípio de custo
 
@@ -57,11 +57,17 @@ npm run build
 - livro e artigo em destaque, além da programação de TV disponível;
 - pesquisa sob demanda de cidades, livros, Wikipédia, séries, animes e alimentos;
 - Biblioteca para ativar ou ocultar fontes opcionais;
-- Estúdio, playlists e perfis de display persistidos localmente;
-- modo display em tela cheia e link compartilhável no fragmento `#config`;
+- Estúdio Visual com drag-and-drop, redimensionamento, colunas, fontes, transparência, bordas e múltiplos layouts;
+- playlists reais por dias e horários, duração de tela, transições, aleatoriedade e pausa por interação;
+- modo display em `/display`, tela cheia, cache offline, Wake Lock quando suportado e cursor automático;
+- compartilhamento por link, QR code e arquivo JSON, sem conta ou banco;
+- busca global, atalhos de teclado, diagnóstico das APIs e limpeza seletiva de cache;
+- notícias marcadas como lidas, salvas, filtradas por fonte, por imagem e com velocidade configurável;
+- sugestões musicais por gênero, prévias de 30 segundos, rádios ao vivo e favoritos locais;
 - backup e restauração em JSON de todas as chaves gerenciadas;
 - tema claro e noturno;
-- atualização configurável entre 5 e 60 minutos.
+- atualização configurável entre 5 e 60 minutos;
+- botão externo para pesquisar o gênero ou faixa no Spotify, sem usar a Web API do Spotify.
 
 ## Agenda, tarefas e lembretes
 
@@ -122,6 +128,23 @@ Todas as integrações abaixo funcionam sem chave de acesso na configuração at
 | `anime` | [Jikan API v4](https://docs.api.jikan.moe/) | busca de anime, sinopse, nota, episódios e status |
 | `food` | [Open Food Facts API v3.6](https://openfoodfacts.github.io/documentation/docs/Product-Opener/v3/products/get-api-v3-product-code/) | leitura de produto por código de barras |
 
+### Música por gênero: `/api/public/music`
+
+| Recurso | API pública | Uso |
+| --- | --- | --- |
+| Sugestões e prévias | [Apple iTunes Search API](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/) | busca faixas do gênero escolhido, metadados, capa e prévia de aproximadamente 30 segundos |
+| Rádios ao vivo | [Radio Browser](https://www.radio-browser.info/) | estações públicas por gênero, codec e bitrate |
+| Abrir no Spotify | busca pública do site Spotify | somente um link externo de pesquisa; não há chamada à Web API |
+| QR code | [QRServer / goQR](https://goqr.me/api/) | gera o QR do link compartilhável somente quando solicitado |
+
+```http
+GET /api/public/music?genre=rock
+GET /api/public/music?genre=lofi
+GET /api/public/music?genre=anime
+```
+
+A rota possui uma lista fechada de gêneros, normaliza as respostas e aplica cache HTTP. A Web API do Spotify **não é usada**, porque exige token de autorização mesmo para leitura. Assim, o projeto continua sem cadastro, client secret ou chave de acesso.
+
 O catálogo [public-apis/public-apis](https://github.com/public-apis/public-apis) foi usado como referência de descoberta, mas não é dependência de execução. Cada integração é validada diretamente com a documentação e os termos do provedor.
 
 As notícias do Anime News Network podem ser publicadas em inglês, pois o projeto preserva o título original e sempre abre a fonte oficial em uma nova aba. O Jikan é usado apenas para leitura e recebe cache para reduzir chamadas.
@@ -137,6 +160,14 @@ GET /api/public/summary?lat=-23.5505&lon=-46.6333&city=São%20Paulo&state=SP&tz=
 ```
 
 A rota executa as fontes em paralelo com `Promise.allSettled`. Uma falha não invalida todo o resumo. O JSON inclui `warnings` com os provedores temporariamente indisponíveis. Notícias de tecnologia combinam Hacker News e DEV Community; notícias de anime usam RSS do Anime News Network, e os títulos em exibição vêm do Jikan.
+
+### Música
+
+```http
+GET /api/public/music?genre=electronic
+```
+
+Retorna sugestões com prévia e rádios por gênero. Não grava histórico no servidor; o gênero, os resultados e favoritos são armazenados no navegador.
 
 ### Pesquisa
 
@@ -168,10 +199,45 @@ Os tipos são uma allowlist. A rota não aceita URL externa arbitrária e, porta
 | `lumaboard-devices` | perfis locais de display |
 | `lumaboard-plugins` | fontes opcionais visíveis |
 | `lumaboard-rules` | alerta de chuva e histórico |
+| `lumaboard-dashboard-v2` | layouts, widgets, propriedades, playlists e configurações do modo display |
+| `lumaboard-music-v1` | gênero, sugestões, rádios e favoritos musicais |
+| `lumaboard-news-preferences-v1` | fonte, velocidade, filtro por imagem e modo somente salvas |
+| `lumaboard-news-state-v1` | notícias lidas e salvas |
 
-A versão 1.4 migra a agenda simples das versões anteriores para lembretes únicos e reconhece as seleções padrão das versões 1.2 e 1.3, ativando a nova fonte de anime sem apagar os demais dados. A chave antiga `lumaboard-public-data-v1` permanece na lista de backup para permitir migração e pode ser removida manualmente depois.
+A versão 1.5 preserva os dados da versão 1.4 e migra a agenda simples das versões anteriores para lembretes únicos e reconhece as seleções padrão das versões 1.2 e 1.3, ativando a nova fonte de anime sem apagar os demais dados. A chave antiga `lumaboard-public-data-v1` permanece na lista de backup para permitir migração e pode ser removida manualmente depois.
 
 O `localStorage` pertence ao navegador e à origem do site. Limpar os dados do site apaga as configurações. Navegadores diferentes não sincronizam automaticamente; use **Automação → Exportar JSON** para transportar os dados.
+
+## Estúdio Visual, playlists e modo display
+
+O Estúdio permite:
+
+- criar, renomear, duplicar e excluir layouts;
+- arrastar widgets para mudar a ordem;
+- ativar, ocultar e redimensionar cada bloco;
+- ajustar colunas, espaçamento, fundo, opacidade, escala de fonte, cabeçalho e borda;
+- visualizar em desktop, tablet, celular e e-paper;
+- importar ou exportar toda a configuração em JSON;
+- copiar um link completo ou gerar QR code.
+
+A área **Playlists** associa layouts a dias e janelas de horário. O modo `/display` resolve a programação localmente e oferece:
+
+- anterior, próximo e pausa;
+- transição suave, deslizante ou sem animação;
+- tela cheia por ação do usuário;
+- cursor oculto após inatividade;
+- Screen Wake Lock quando o navegador oferecer suporte;
+- indicador online/offline e uso do último cache;
+- retorno automático à programação depois da pausa por interação.
+
+Atalhos principais:
+
+| Atalho | Ação |
+| --- | --- |
+| `Ctrl/Cmd + K` ou `/` | abrir busca global |
+| `D` | abrir modo display |
+| `R` | atualizar clima e dados públicos |
+| `1` a `8` | abrir áreas principais |
 
 ## Publicar no Netlify
 
@@ -192,10 +258,12 @@ O plano Free atual do Netlify é gratuito e possui limite mensal rígido. Se a c
 Use **Gerar link do display**. O LumaBoard cria:
 
 ```text
-/?display=1#config=...
+/display#config=...
 ```
 
-O fragmento após `#` é processado no navegador e não é enviado ao servidor. O aparelho que abrir o link consulta seu próprio clima e as APIs públicas. Não coloque senhas, tokens ou informações sensíveis nesse link.
+O fragmento após `#` é processado no navegador e não é enviado ao servidor. Ele contém layouts, widgets e programação do display; não contém a agenda pessoal, favoritos ou caches. O aparelho que abrir o link consulta seu próprio clima e as APIs públicas. Não coloque senhas, tokens ou informações sensíveis no nome de layouts ou widgets.
+
+O Estúdio também exporta e importa um arquivo JSON. O QR code é opcional: quando exibido, o link é enviado ao serviço QRServer somente para gerar a imagem do código.
 
 Sincronização contínua, revogação remota, telemetria real e envio de frames a um ESP32 exigiriam estado compartilhado e não fazem parte desta arquitetura gratuita.
 
@@ -208,11 +276,16 @@ flowchart TD
     Browser --> Weather["Open-Meteo Forecast"]
     Browser --> Summary["/api/public/summary"]
     Browser --> Search["/api/public/search"]
+    Browser --> Music["/api/public/music"]
+    Browser --> Studio["Estúdio + playlists + /display"]
     Summary --> PublicAPIs["APIs públicas allowlisted"]
     Search --> SearchAPIs["Consultas públicas allowlisted"]
+    Music --> MusicAPIs["iTunes Search + Radio Browser"]
     Summary --> CDN["Cache HTTP / CDN"]
     Search --> CDN
-    Browser --> Display["Modo display / link #config"]
+    Music --> CDN
+    Studio --> Local
+    Browser --> Display["Modo /display + link #config + JSON + QR"]
 ```
 
 | Parte | Arquivo | Responsabilidade |
@@ -224,16 +297,22 @@ flowchart TD
 | Pesquisas | `app/public-explorer.tsx` | consultas sob demanda e aplicação de local |
 | Function de resumo | `app/api/public/summary/route.ts` | agregação paralela sem estado |
 | Function de pesquisa | `app/api/public/search/route.ts` | pesquisa allowlisted sem estado |
-| Módulos | `app/modules.tsx` | Estúdio, playlists, displays, Biblioteca e automação |
+| Módulos | `app/modules.tsx` | displays, Biblioteca, automação e módulos legados |
+| Estúdio e playlists | `app/studio-v2.tsx` | editor visual, layouts, programação, importação e compartilhamento |
+| Configuração visual | `app/dashboard-config.ts` | tipos, validação, persistência, programação e link compartilhável |
+| Renderizador | `app/dashboard-renderer.tsx` | widgets reais reutilizados no Estúdio e no display |
+| Display | `app/display/` | rota independente, fullscreen, Wake Lock, offline e transições |
+| Música | `app/music-module.tsx` e `app/api/public/music/route.ts` | gêneros, prévias, rádios e favoritos |
+| Diagnóstico | `app/diagnostics-module.tsx` | status, provedores, tamanho local e limpeza seletiva |
 | Backup | `app/storage.ts` | chaves gerenciadas, migração, exportação e importação |
 | Visual | `app/globals.css` | temas e responsividade |
 
 ## Privacidade
 
-Nenhuma conta, senha ou chave de API é solicitada. Coordenadas, cidade e termos pesquisados são enviados somente aos serviços necessários para responder à ação do usuário. O código da Function não grava essas requisições. Provedores externos e a plataforma de hospedagem podem manter logs conforme suas próprias políticas.
+Nenhuma conta, senha ou chave de API é solicitada. Coordenadas, cidade, gêneros e termos pesquisados são enviados somente aos serviços necessários para responder à ação do usuário. O código da Function não grava essas requisições. Provedores externos e a plataforma de hospedagem podem manter logs conforme suas próprias políticas.
 
 Para apagar os dados locais, limpe os dados do site no navegador. Para transportar as configurações, exporte o backup JSON.
 
 ## Licença e atribuições
 
-O LumaBoard é distribuído sob a [Licença MIT](LICENSE). Dados e marcas externas permanecem sujeitos às licenças dos respectivos provedores. Preserve os links de atribuição exibidos na interface, especialmente OpenStreetMap, Open-Meteo/CAMS/DWD, Sunrise-Sunset.org, Open Food Facts, Open Library, Wikimedia, TVmaze, Anime News Network, Jikan e DEV Community.
+O LumaBoard é distribuído sob a [Licença MIT](LICENSE). Dados e marcas externas permanecem sujeitos às licenças dos respectivos provedores. Preserve os links de atribuição exibidos na interface, especialmente OpenStreetMap, Open-Meteo/CAMS/DWD, Sunrise-Sunset.org, Open Food Facts, Open Library, Wikimedia, TVmaze, Anime News Network, Jikan, DEV Community, Apple iTunes Search, Radio Browser e QRServer/goQR.

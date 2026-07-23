@@ -74,7 +74,9 @@ export type View =
   | "playlists"
   | "devices"
   | "library"
-  | "automation";
+  | "automation"
+  | "music"
+  | "diagnostics";
 
 type ToastHandler = (message: string) => void;
 
@@ -110,7 +112,7 @@ const widgetOptions = [
   { id: "api", name: "Dados públicos", icon: Code2 },
 ];
 
-export function StudioModule({ preview, onToast }: { preview: ReactNode; onToast: ToastHandler }) {
+export function LegacyStudioModule({ preview, onToast }: { preview: ReactNode; onToast: ToastHandler }) {
   const [selected, setSelected] = useState("calendar");
   const [layout, setLayout] = useState("thirds");
   const [screenName, setScreenName] = useState("Rotina da manhã");
@@ -275,7 +277,7 @@ const createDefaultPlaylist = (city: string): PlaylistItem[] => [
 
 const playlistIcons = { calendar: CalendarDays, weather: CloudSun, focus: Focus, news: Rss };
 
-export function PlaylistsModule({ onToast, city }: { onToast: ToastHandler; city: string }) {
+export function LegacyPlaylistsModule({ onToast, city }: { onToast: ToastHandler; city: string }) {
   const [items, setItems] = useState(() => createDefaultPlaylist(city));
   const [hour, setHour] = useState(14);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -699,3 +701,5 @@ export function AutomationModule({
     </section>
   );
 }
+
+export { StudioModuleV2 as StudioModule, PlaylistsModuleV2 as PlaylistsModule } from "./studio-v2";

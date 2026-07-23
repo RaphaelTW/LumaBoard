@@ -173,7 +173,7 @@ async function fetchJson(url: string, timeout = 7000): Promise<unknown> {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "LumaBoard/1.4 (+https://lumaboard.netlify.app)",
+        "User-Agent": "LumaBoard/1.5 (+https://lumaboard.netlify.app)",
       },
       next: { revalidate: 900 },
     });
@@ -193,7 +193,7 @@ async function fetchText(url: string) {
       signal: controller.signal,
       headers: {
         Accept: "application/rss+xml, application/xml, text/xml, text/plain",
-        "User-Agent": "LumaBoard/1.4 (+https://lumaboard.netlify.app)",
+        "User-Agent": "LumaBoard/1.5 (+https://lumaboard.netlify.app)",
       },
       next: { revalidate: 900 },
     });
