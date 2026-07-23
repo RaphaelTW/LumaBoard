@@ -6,11 +6,22 @@ export const dynamic = "force-dynamic";
 type JsonRecord = Record<string, unknown>;
 
 type NewsItem = {
-  id: number;
+  id: string;
   title: string;
   url: string;
   score: number;
   source: string;
+  publishedAt: string | null;
+  imageUrl: string | null;
+};
+
+type AnimeItem = {
+  id: number;
+  title: string;
+  url: string;
+  score: number | null;
+  imageUrl: string | null;
+  detail: string;
 };
 
 type HolidayItem = {
@@ -31,6 +42,10 @@ type PublicSummary = {
   updatedAt: string;
   sources: string[];
   news: NewsItem[];
+  anime: {
+    news: NewsItem[];
+    trending: AnimeItem[];
+  };
   rates: {
     date: string | null;
     usdBrl: number | null;
@@ -126,6 +141,17 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function safeHttpUrl(value: unknown): string | null {
+  const candidate = stringOrNull(value);
+  if (!candidate) return null;
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeText(value: string): string {
   return value
     .normalize("NFD")
@@ -147,7 +173,7 @@ async function fetchJson(url: string, timeout = 7000): Promise<unknown> {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "LumaBoard/1.3 (+https://lumaboard.netlify.app)",
+        "User-Agent": "LumaBoard/1.4 (+https://lumaboard.netlify.app)",
       },
       next: { revalidate: 900 },
     });
@@ -156,6 +182,66 @@ async function fetchJson(url: string, timeout = 7000): Promise<unknown> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+
+async function fetchText(url: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/rss+xml, application/xml, text/xml, text/plain",
+        "User-Agent": "LumaBoard/1.4 (+https://lumaboard.netlify.app)",
+      },
+      next: { revalidate: 900 },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function decodeXml(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (entity, code: string) => {
+      const point = Number(code);
+      return Number.isInteger(point) && point >= 0 && point <= 0x10ffff
+        ? String.fromCodePoint(point)
+        : entity;
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (entity, code: string) => {
+      const point = Number.parseInt(code, 16);
+      return Number.isInteger(point) && point >= 0 && point <= 0x10ffff
+        ? String.fromCodePoint(point)
+        : entity;
+    })
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
+function xmlTag(block: string, tag: string): string {
+  const match = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? decodeXml(match[1]) : "";
+}
+
+function xmlAttribute(block: string, tag: string, attribute: string): string {
+  const match = block.match(new RegExp(`<${tag}[^>]*\\s${attribute}=["']([^"']+)["'][^>]*>`, "i"));
+  return match ? decodeXml(match[1]) : "";
+}
+
+function toIsoDate(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function localDateKey(timeZone = "America/Sao_Paulo"): string {
@@ -170,7 +256,7 @@ function localDateKey(timeZone = "America/Sao_Paulo"): string {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
-async function loadNews(): Promise<NewsItem[]> {
+async function loadHackerNews(): Promise<NewsItem[]> {
   const idsPayload = await fetchJson(
     "https://hacker-news.firebaseio.com/v0/topstories.json",
   );
@@ -181,9 +267,7 @@ async function loadNews(): Promise<NewsItem[]> {
     .map(Number)
     .filter((id) => Number.isInteger(id) && id > 0);
   const stories = await Promise.allSettled(
-    ids.map((id) =>
-      fetchJson(`https://hacker-news.firebaseio.com/v0/item/${id}.json`),
-    ),
+    ids.map((id) => fetchJson(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)),
   );
 
   return stories
@@ -193,25 +277,123 @@ async function loadNews(): Promise<NewsItem[]> {
       const id = Number(story.id);
       const title = typeof story.title === "string" ? story.title.trim() : "";
       if (!Number.isInteger(id) || !title) return null;
-      const originalUrl = typeof story.url === "string" ? story.url : "";
-      let source = "news.ycombinator.com";
+      const originalUrl = safeHttpUrl(story.url) ?? "";
+      let source = "Hacker News";
       if (originalUrl) {
         try {
           source = new URL(originalUrl).hostname.replace(/^www\./, "");
         } catch {
-          // Keep the Hacker News source label.
+          // Keep the provider label.
         }
       }
+      const timestamp = Number(story.time);
       return {
-        id,
+        id: `hn-${id}`,
         title,
         url: originalUrl || `https://news.ycombinator.com/item?id=${id}`,
         score: Math.max(0, Number(story.score) || 0),
         source,
+        publishedAt: Number.isFinite(timestamp) ? new Date(timestamp * 1000).toISOString() : null,
+        imageUrl: null,
       };
     })
     .filter((item): item is NewsItem => item !== null)
-    .slice(0, 5);
+    .slice(0, 6);
+}
+
+async function loadDevNews(): Promise<NewsItem[]> {
+  const payload = await fetchJson("https://dev.to/api/articles?top=7&per_page=6");
+  if (!Array.isArray(payload)) throw new Error("DEV Community indisponível");
+  return payload.filter(isRecord).flatMap((article): NewsItem[] => {
+    const id = Number(article.id);
+    const title = stringOrNull(article.title);
+    const url = safeHttpUrl(article.url);
+    if (!Number.isInteger(id) || !title || !url) return [];
+    return [{
+      id: `dev-${id}`,
+      title,
+      url,
+      score: Math.max(0, Number(article.public_reactions_count) || 0),
+      source: "DEV Community",
+      publishedAt: toIsoDate(article.published_at),
+      imageUrl: safeHttpUrl(article.cover_image) ?? safeHttpUrl(article.social_image),
+    }];
+  });
+}
+
+async function loadNews(): Promise<NewsItem[]> {
+  const [hackerNews, devNews] = await Promise.allSettled([loadHackerNews(), loadDevNews()]);
+  const combined = [
+    ...(hackerNews.status === "fulfilled" ? hackerNews.value : []),
+    ...(devNews.status === "fulfilled" ? devNews.value : []),
+  ];
+  if (combined.length === 0) throw new Error("Notícias de tecnologia indisponíveis");
+  return combined
+    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "") || b.score - a.score)
+    .slice(0, 10);
+}
+
+async function loadAnimeNews(): Promise<NewsItem[]> {
+  const xml = await fetchText("https://www.animenewsnetwork.com/all/rss.xml?ann-edition=us");
+  const items = xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+  const parsed = items.flatMap((block, index): NewsItem[] => {
+    const title = xmlTag(block, "title");
+    const url = safeHttpUrl(xmlTag(block, "link"));
+    if (!title || !url) return [];
+    const guid = xmlTag(block, "guid") || `${index}-${url}`;
+    const imageUrl = safeHttpUrl(
+      xmlAttribute(block, "media:thumbnail", "url") ||
+      xmlAttribute(block, "media:content", "url") ||
+      xmlAttribute(block, "enclosure", "url"),
+    );
+    return [{
+      id: `ann-${guid}`,
+      title,
+      url,
+      score: 0,
+      source: "Anime News Network",
+      publishedAt: toIsoDate(xmlTag(block, "pubDate")),
+      imageUrl,
+    }];
+  });
+  if (parsed.length === 0) throw new Error("RSS de anime indisponível");
+  return parsed.slice(0, 12);
+}
+
+async function loadTrendingAnime(): Promise<AnimeItem[]> {
+  const payload = await fetchJson("https://api.jikan.moe/v4/top/anime?filter=airing&limit=8");
+  const data = isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
+  const items = data.filter(isRecord).flatMap((anime): AnimeItem[] => {
+    const id = Number(anime.mal_id);
+    const title = stringOrNull(anime.title_english) ?? stringOrNull(anime.title);
+    const url = safeHttpUrl(anime.url);
+    if (!Number.isInteger(id) || !title || !url) return [];
+    const images = isRecord(anime.images) ? anime.images : {};
+    const jpg = isRecord(images.jpg) ? images.jpg : {};
+    const episodes = finiteOrNull(anime.episodes);
+    const type = stringOrNull(anime.type) ?? "Anime";
+    return [{
+      id,
+      title,
+      url,
+      score: finiteOrNull(anime.score),
+      imageUrl: safeHttpUrl(jpg.large_image_url) ?? safeHttpUrl(jpg.image_url),
+      detail: `${type}${episodes === null ? "" : ` · ${Math.round(episodes)} episódios`}`,
+    }];
+  });
+  if (items.length === 0) throw new Error("Jikan sem títulos em exibição");
+  return items;
+}
+
+async function loadAnime() {
+  const [news, trending] = await Promise.allSettled([loadAnimeNews(), loadTrendingAnime()]);
+  if (news.status === "rejected" && trending.status === "rejected") {
+    throw new Error("Fontes de anime indisponíveis");
+  }
+  return {
+    news: news.status === "fulfilled" ? news.value : [],
+    trending: trending.status === "fulfilled" ? trending.value : [],
+  };
 }
 
 async function loadRates() {
@@ -629,6 +811,7 @@ export async function GET(request: NextRequest) {
 
   const results = await Promise.allSettled([
     loadNews(),
+    loadAnime(),
     loadRates(),
     loadHoliday(year),
     coordinatesReady ? loadAirQuality(latitude, longitude) : Promise.resolve(emptyAir),
@@ -648,6 +831,7 @@ export async function GET(request: NextRequest) {
 
   const [
     newsResult,
+    animeResult,
     ratesResult,
     holidayResult,
     airResult,
@@ -664,7 +848,8 @@ export async function GET(request: NextRequest) {
   ] = results;
 
   const warningLabels = [
-    "notícias",
+    "notícias de tecnologia",
+    "anime",
     "câmbio",
     "feriados",
     "qualidade do ar",
@@ -694,11 +879,15 @@ export async function GET(request: NextRequest) {
       "Frankfurter",
       "BrasilAPI",
       "Hacker News",
+      "DEV Community",
+      "Anime News Network",
+      "Jikan",
       "Open Library",
       "Wikimedia",
       "TVmaze",
     ],
     news: newsResult.status === "fulfilled" ? newsResult.value : [],
+    anime: animeResult.status === "fulfilled" ? animeResult.value : { news: [], trending: [] },
     rates:
       ratesResult.status === "fulfilled"
         ? ratesResult.value

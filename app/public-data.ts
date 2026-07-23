@@ -8,11 +8,22 @@ const DEFAULT_REFRESH_MINUTES = 15;
 const REFRESH_SETTINGS_KEY = "lumaboard-refresh-minutes";
 
 export type PublicNewsItem = {
-  id: number;
+  id: string;
   title: string;
   url: string;
   score: number;
   source: string;
+  publishedAt: string | null;
+  imageUrl: string | null;
+};
+
+export type PublicAnimeItem = {
+  id: number;
+  title: string;
+  url: string;
+  score: number | null;
+  imageUrl: string | null;
+  detail: string;
 };
 
 export type PublicEarthquake = {
@@ -27,6 +38,10 @@ export type PublicSummary = {
   updatedAt: string;
   sources: string[];
   news: PublicNewsItem[];
+  anime: {
+    news: PublicNewsItem[];
+    trending: PublicAnimeItem[];
+  };
   rates: {
     date: string | null;
     usdBrl: number | null;
@@ -120,6 +135,7 @@ export const DEFAULT_PUBLIC_PLUGIN_IDS = [
   "rates",
   "holidays",
   "news",
+  "anime",
   "economy",
   "ibge",
   "earthquakes",
@@ -133,6 +149,10 @@ export const DEFAULT_PUBLIC_PLUGIN_IDS = [
 ] as const;
 
 const LEGACY_PUBLIC_PLUGIN_IDS = new Set(["air", "rates", "holidays", "news"]);
+const VERSION_13_DEFAULT_PLUGIN_IDS = new Set([
+  "air", "rates", "holidays", "news", "economy", "ibge", "earthquakes",
+  "elevation", "flood", "marine", "sun", "books", "wikipedia", "tv",
+]);
 const PUBLIC_PLUGIN_ID_SET = new Set<string>(DEFAULT_PUBLIC_PLUGIN_IDS);
 
 export function normalizeEnabledPublicPlugins(value: unknown): string[] {
@@ -146,7 +166,13 @@ export function normalizeEnabledPublicPlugins(value: unknown): string[] {
     filtered.length === LEGACY_PUBLIC_PLUGIN_IDS.size &&
     filtered.every((item) => LEGACY_PUBLIC_PLUGIN_IDS.has(item));
 
-  return isVersionOneDefault ? [...DEFAULT_PUBLIC_PLUGIN_IDS] : filtered;
+  const isVersionThirteenDefault =
+    filtered.length === VERSION_13_DEFAULT_PLUGIN_IDS.size &&
+    filtered.every((item) => VERSION_13_DEFAULT_PLUGIN_IDS.has(item));
+
+  return isVersionOneDefault || isVersionThirteenDefault
+    ? [...DEFAULT_PUBLIC_PLUGIN_IDS]
+    : filtered;
 }
 
 export const initialPublicSummary: PublicSummary = {
@@ -160,11 +186,15 @@ export const initialPublicSummary: PublicSummary = {
     "Frankfurter",
     "BrasilAPI",
     "Hacker News",
+    "DEV Community",
+    "Anime News Network",
+    "Jikan",
     "Open Library",
     "Wikimedia",
     "TVmaze",
   ],
   news: [],
+  anime: { news: [], trending: [] },
   rates: { date: null, usdBrl: null, eurBrl: null },
   nextHoliday: null,
   airQuality: { europeanAqi: null, pm25: null, updatedAt: null },
@@ -210,6 +240,9 @@ function isPublicSummary(value: unknown): value is PublicSummary {
   if (!isRecord(value)) return false;
   if (typeof value.updatedAt !== "string") return false;
   if (!Array.isArray(value.sources) || !Array.isArray(value.news) || !Array.isArray(value.warnings)) {
+    return false;
+  }
+  if (!isRecord(value.anime) || !Array.isArray(value.anime.news) || !Array.isArray(value.anime.trending)) {
     return false;
   }
   if (

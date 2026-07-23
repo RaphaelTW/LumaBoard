@@ -1,6 +1,6 @@
 # Protocolo de display sem conta
 
-O LumaBoard 1.3 não possui banco de dados, autenticação ou servidor de pareamento. O fluxo suportado usa navegador, `localStorage`, Functions sem estado e uma URL compartilhável.
+O LumaBoard 1.4 não possui banco de dados, autenticação ou servidor de pareamento. O fluxo suportado usa navegador, `localStorage`, Functions sem estado e uma URL compartilhável.
 
 ## 1. Gerar o link
 

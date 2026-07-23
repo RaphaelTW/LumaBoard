@@ -8,7 +8,7 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.3** monta e exibe conteúdo para navegadores, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, Pomodoro, playlists, fontes, pesquisas, localização escolhida e preferências ficam no `localStorage` do navegador. O servidor não mantém sessão e não grava SQLite, JSON ou banco.
+O **LumaBoard 1.4** monta e exibe conteúdo para navegadores, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, Pomodoro, playlists, fontes, pesquisas, localização escolhida e preferências ficam no `localStorage` do navegador. O servidor não mantém sessão e não grava SQLite, JSON ou banco.
 
 ## Princípio de custo
 
@@ -47,19 +47,35 @@ npm run build
 
 - localização pela máquina, por IP aproximado ou por cidade pesquisada;
 - clima atual, previsão horária e alerta de chuva;
-- agenda local com inclusão e exclusão de compromissos;
+- agenda local com lembretes e tarefas de ocorrência única, diária, semanal, mensal ou anual;
+- conclusão por ocorrência e notificações do navegador enquanto o LumaBoard estiver aberto;
 - Pomodoro funcional, tarefa atual e duração configurável;
-- qualidade do ar, câmbio, feriados, notícias, Selic, IPCA e dados do IBGE;
+- qualidade do ar, câmbio, feriados, carrossel de notícias de tecnologia, Selic, IPCA e dados do IBGE;
+- carrossel de notícias de anime e lista de títulos atualmente em exibição;
 - terremotos mundiais e distância do evento mais próximo;
 - altitude, vazão de rios, condição marítima e horários solares;
 - livro e artigo em destaque, além da programação de TV disponível;
-- pesquisa sob demanda de cidades, livros, Wikipédia, séries e alimentos;
+- pesquisa sob demanda de cidades, livros, Wikipédia, séries, animes e alimentos;
 - Biblioteca para ativar ou ocultar fontes opcionais;
 - Estúdio, playlists e perfis de display persistidos localmente;
 - modo display em tela cheia e link compartilhável no fragmento `#config`;
 - backup e restauração em JSON de todas as chaves gerenciadas;
 - tema claro e noturno;
 - atualização configurável entre 5 e 60 minutos.
+
+## Agenda, tarefas e lembretes
+
+Cada item da agenda pode ser criado como **Lembrete** ou **Tarefa** e configurado como:
+
+- uma vez;
+- todos os dias;
+- toda semana, no mesmo dia da semana;
+- todo mês, no mesmo dia do mês;
+- todo ano, no mesmo mês e dia.
+
+Para repetir no dia 26, escolha uma data cujo dia seja 26 e selecione **Todo mês**. Para outro assunto no dia 10, crie um segundo item mensal com o dia 10. A conclusão é registrada por ocorrência: uma tarefa mensal concluída em julho volta a aparecer em agosto. Uma tarefa de ocorrência única permanece no histórico local e pode ser reaberta ou excluída.
+
+O botão **Ativar alertas** solicita permissão da Notifications API. Como o projeto não usa push, servidor persistente ou conta, o navegador só consegue disparar o alerta enquanto o LumaBoard estiver aberto. Se a página estiver fechada ou o dispositivo suspenso, não há garantia de notificação em segundo plano.
 
 ## APIs e serviços usados
 
@@ -80,7 +96,9 @@ Todas as integrações abaixo funcionam sem chave de acesso na configuração at
 | Qualidade do ar | [Open-Meteo Air Quality / CAMS](https://open-meteo.com/en/docs/air-quality-api) | AQI europeu e PM2.5 |
 | Câmbio | [Frankfurter](https://frankfurter.dev/) | USD/BRL e EUR/BRL |
 | Feriados | [BrasilAPI](https://brasilapi.com.br/docs) | próximo feriado nacional |
-| Notícias | [Hacker News API](https://github.com/HackerNews/API) | histórias em destaque |
+| Notícias de tecnologia | [Hacker News API](https://github.com/HackerNews/API) + [DEV Community API](https://developers.forem.com/api/v0) | carrossel com histórias em destaque, imagens quando disponíveis e abertura da fonte original |
+| Notícias de anime | [Anime News Network RSS](https://www.animenewsnetwork.com/all/rss.xml) | carrossel de notícias da indústria de anime e mangá |
+| Animes em exibição | [Jikan API v4](https://docs.api.jikan.moe/) | títulos atualmente em exibição, notas e links para detalhes |
 | Economia | [Banco Central do Brasil — SGS](https://dadosabertos.bcb.gov.br/) | Selic, série 1178, e IPCA, série 433 |
 | Município | [IBGE Localidades](https://servicodados.ibge.gov.br/api/docs/localidades) | código, município, UF e regiões |
 | População | [IBGE Agregados v3](https://servicodados.ibge.gov.br/api/docs/agregados?versao=3) | estimativa populacional do município |
@@ -101,7 +119,12 @@ Todas as integrações abaixo funcionam sem chave de acesso na configuração at
 | `book` | [Open Library](https://openlibrary.org/developers/api) | busca por título, autor ou assunto |
 | `wikipedia` | [Wikimedia REST API](https://www.mediawiki.org/wiki/Wikimedia_REST_API) | busca de páginas em português |
 | `tv` | [TVmaze API](https://www.tvmaze.com/api) | busca de séries e metadados |
+| `anime` | [Jikan API v4](https://docs.api.jikan.moe/) | busca de anime, sinopse, nota, episódios e status |
 | `food` | [Open Food Facts API v3.6](https://openfoodfacts.github.io/documentation/docs/Product-Opener/v3/products/get-api-v3-product-code/) | leitura de produto por código de barras |
+
+O catálogo [public-apis/public-apis](https://github.com/public-apis/public-apis) foi usado como referência de descoberta, mas não é dependência de execução. Cada integração é validada diretamente com a documentação e os termos do provedor.
+
+As notícias do Anime News Network podem ser publicadas em inglês, pois o projeto preserva o título original e sempre abre a fonte oficial em uma nova aba. O Jikan é usado apenas para leitura e recebe cache para reduzir chamadas.
 
 O Nominatim só é consultado quando o Open-Meteo Geocoding não encontra resultados. A busca acontece apenas após o envio do formulário, passa por cache, identifica a aplicação e exibe atribuição ao OpenStreetMap; não existe autocomplete a cada tecla. O Open Food Facts usa a API v3.6 somente para leitura, com `User-Agent`, e a Open Library também é usada em baixo volume e por ação do usuário.
 
@@ -113,7 +136,7 @@ O Nominatim só é consultado quando o Open-Meteo Geocoding não encontra result
 GET /api/public/summary?lat=-23.5505&lon=-46.6333&city=São%20Paulo&state=SP&tz=America/Sao_Paulo
 ```
 
-A rota executa as fontes em paralelo com `Promise.allSettled`. Uma falha não invalida todo o resumo. O JSON inclui `warnings` com os provedores temporariamente indisponíveis.
+A rota executa as fontes em paralelo com `Promise.allSettled`. Uma falha não invalida todo o resumo. O JSON inclui `warnings` com os provedores temporariamente indisponíveis. Notícias de tecnologia combinam Hacker News e DEV Community; notícias de anime usam RSS do Anime News Network, e os títulos em exibição vêm do Jikan.
 
 ### Pesquisa
 
@@ -122,6 +145,7 @@ GET /api/public/search?type=location&q=Curitiba
 GET /api/public/search?type=book&q=design
 GET /api/public/search?type=wikipedia&q=computação
 GET /api/public/search?type=tv&q=dark
+GET /api/public/search?type=anime&q=one%20piece
 GET /api/public/search?type=food&q=7891000100103
 ```
 
@@ -131,7 +155,8 @@ Os tipos são uma allowlist. A rota não aceita URL externa arbitrária e, porta
 
 | Chave | Conteúdo |
 | --- | --- |
-| `lumaboard-agenda` | compromissos locais |
+| `lumaboard-agenda` | lembretes, tarefas, recorrências e conclusões por data |
+| `lumaboard-agenda-notifications` | ocorrências já notificadas para evitar alertas duplicados |
 | `lumaboard-focus` | projeto, tarefa e estado do Pomodoro |
 | `lumaboard-public-data-v2` | último resumo válido das APIs públicas |
 | `lumaboard-public-explorer-v1` | últimas consultas e resultados sob demanda |
@@ -144,7 +169,7 @@ Os tipos são uma allowlist. A rota não aceita URL externa arbitrária e, porta
 | `lumaboard-plugins` | fontes opcionais visíveis |
 | `lumaboard-rules` | alerta de chuva e histórico |
 
-A versão 1.3 reconhece a seleção padrão da versão 1.2 e ativa as novas fontes sem apagar os demais dados. A chave antiga `lumaboard-public-data-v1` permanece na lista de backup para permitir migração e pode ser removida manualmente depois.
+A versão 1.4 migra a agenda simples das versões anteriores para lembretes únicos e reconhece as seleções padrão das versões 1.2 e 1.3, ativando a nova fonte de anime sem apagar os demais dados. A chave antiga `lumaboard-public-data-v1` permanece na lista de backup para permitir migração e pode ser removida manualmente depois.
 
 O `localStorage` pertence ao navegador e à origem do site. Limpar os dados do site apaga as configurações. Navegadores diferentes não sincronizam automaticamente; use **Automação → Exportar JSON** para transportar os dados.
 
@@ -211,4 +236,4 @@ Para apagar os dados locais, limpe os dados do site no navegador. Para transport
 
 ## Licença e atribuições
 
-O LumaBoard é distribuído sob a [Licença MIT](LICENSE). Dados e marcas externas permanecem sujeitos às licenças dos respectivos provedores. Preserve os links de atribuição exibidos na interface, especialmente OpenStreetMap, Open-Meteo/CAMS/DWD, Sunrise-Sunset.org, Open Food Facts, Open Library, Wikimedia e TVmaze.
+O LumaBoard é distribuído sob a [Licença MIT](LICENSE). Dados e marcas externas permanecem sujeitos às licenças dos respectivos provedores. Preserve os links de atribuição exibidos na interface, especialmente OpenStreetMap, Open-Meteo/CAMS/DWD, Sunrise-Sunset.org, Open Food Facts, Open Library, Wikimedia, TVmaze, Anime News Network, Jikan e DEV Community.

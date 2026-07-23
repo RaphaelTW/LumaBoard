@@ -7,6 +7,7 @@ import {
   MapPin,
   Search,
   Soup,
+  Sparkles,
   Tv,
   Globe2,
 } from "lucide-react";
@@ -15,7 +16,7 @@ import { isRecord, readStoredValue, writeStoredValue } from "./storage";
 
 const EXPLORER_KEY = "lumaboard-public-explorer-v1";
 
-type SearchType = "location" | "book" | "wikipedia" | "tv" | "food";
+type SearchType = "location" | "book" | "wikipedia" | "tv" | "anime" | "food";
 type SearchResult = Record<string, unknown>;
 type SearchResponse = {
   type: SearchType;
@@ -50,6 +51,7 @@ const tabs: Array<{
   { id: "book", label: "Livros", placeholder: "Título, autor ou assunto", icon: BookOpen },
   { id: "wikipedia", label: "Wikipédia", placeholder: "Assunto para pesquisar", icon: Globe2 },
   { id: "tv", label: "Séries", placeholder: "Nome de uma série", icon: Tv },
+  { id: "anime", label: "Animes", placeholder: "Nome de um anime", icon: Sparkles },
   { id: "food", label: "Alimentos", placeholder: "Código de barras", icon: Soup },
 ];
 
@@ -60,7 +62,7 @@ const emptyCache: ExplorerCache = {
 };
 
 function isSearchType(value: unknown): value is SearchType {
-  return value === "location" || value === "book" || value === "wikipedia" || value === "tv" || value === "food";
+  return value === "location" || value === "book" || value === "wikipedia" || value === "tv" || value === "anime" || value === "food";
 }
 
 function isSearchResponse(value: unknown): value is SearchResponse {
@@ -167,13 +169,16 @@ function ResultCard({
     text(item.description) ||
     text(item.network) ||
     text(item.summary) ||
+    text(item.synopsis) ||
     text(item.excerpt);
   const detail =
     type === "book"
       ? [item.year ? String(item.year) : "", item.editions ? `${item.editions} edições` : ""].filter(Boolean).join(" · ")
       : type === "tv"
         ? [text(item.language), Array.isArray(item.genres) ? item.genres.join(", ") : "", text(item.status)].filter(Boolean).join(" · ")
-        : text(item.excerpt);
+        : type === "anime"
+          ? [text(item.type), item.episodes ? `${item.episodes} episódios` : "", item.score ? `nota ${item.score}` : "", item.year ? String(item.year) : ""].filter(Boolean).join(" · ")
+          : text(item.excerpt);
 
   return (
     <article className="explorer-result-card">
@@ -329,7 +334,7 @@ export function PublicExplorer({
         </div>
 
         <footer className="public-data-footer">
-          <span>Open-Meteo Geocoding · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · Open Library · Wikimedia · TVmaze · Open Food Facts</span>
+          <span>Open-Meteo Geocoding · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · Open Library · Wikimedia · TVmaze · Jikan · Open Food Facts</span>
           <span>Nenhuma consulta é gravada no servidor.</span>
         </footer>
       </article>

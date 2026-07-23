@@ -270,7 +270,7 @@ const createDefaultPlaylist = (city: string): PlaylistItem[] => [
   { id: 1, name: "Agenda de hoje", detail: "Eventos locais · navegador", duration: "15", enabled: true, icon: "calendar" },
   { id: 2, name: "Clima e trajeto", detail: `${city} · 4 cinzas`, duration: "10", enabled: true, icon: "weather" },
   { id: 3, name: "Bloco de foco", detail: "Tarefas locais · monocromático", duration: "25", enabled: true, icon: "focus" },
-  { id: 4, name: "Resumo de notícias", detail: "Hacker News API · 5 itens", duration: "30", enabled: true, icon: "news" },
+  { id: 4, name: "Carrossel de notícias", detail: "Tecnologia + anime · abertura externa", duration: "30", enabled: true, icon: "news" },
 ];
 
 const playlistIcons = { calendar: CalendarDays, weather: CloudSun, focus: Focus, news: Rss };
@@ -513,7 +513,8 @@ const libraryPlugins = [
   { id: "calendar", name: "Agenda local", category: "Produtividade", source: "localStorage", description: "Compromissos criados no navegador, sem Google, Outlook ou login.", icon: CalendarDays, core: true },
   { id: "weather", name: "Clima local", category: "Ambiente", source: "Open-Meteo", description: "Condição atual, previsão e alertas de chuva sem chave de API.", icon: CloudSun, core: true },
   { id: "focus", name: "Foco local", category: "Produtividade", source: "localStorage", description: "Pomodoro persistente, tarefa atual e duração configurável.", icon: Focus, core: true },
-  { id: "news", name: "Notícias de tecnologia", category: "Conteúdo", source: "Hacker News", description: "Principais histórias da API oficial, normalizadas pela Function.", icon: Rss, core: false },
+  { id: "news", name: "Notícias de tecnologia", category: "Conteúdo", source: "Hacker News + DEV", description: "Carrossel automático com várias histórias, controles e abertura da fonte original.", icon: Rss, core: false },
+  { id: "anime", name: "Notícias e animes", category: "Conteúdo", source: "Anime News Network + Jikan", description: "Carrossel de notícias de anime e títulos em exibição, sem conta ou chave.", icon: Sparkles, core: false },
   { id: "air", name: "Qualidade do ar", category: "Ambiente", source: "Open-Meteo / CAMS", description: "AQI europeu e partículas PM2.5 para a localização do display.", icon: Activity, core: false },
   { id: "rates", name: "Câmbio", category: "Economia", source: "Frankfurter", description: "Cotações de dólar e euro em reais, sem autenticação.", icon: Globe2, core: false },
   { id: "holidays", name: "Feriados do Brasil", category: "Produtividade", source: "BrasilAPI", description: "Próximo feriado nacional usando uma API pública brasileira.", icon: CalendarDays, core: false },

@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleGauge,
   Cloud,
@@ -70,7 +71,12 @@ import {
 import { type WeatherSnapshot, useLocalWeather } from "./weather";
 import {
   formatTimer,
+  getNextOccurrence,
+  recurrenceLabel,
   type AgendaEvent,
+  type AgendaKind,
+  type AgendaOccurrence,
+  type AgendaRecurrence,
   type FocusSession,
   useLocalWidgets,
 } from "./local-widgets";
@@ -78,6 +84,8 @@ import {
   DEFAULT_PUBLIC_PLUGIN_IDS,
   normalizeEnabledPublicPlugins,
   describeAqi,
+  type PublicAnimeItem,
+  type PublicNewsItem,
   type PublicSummary,
   usePublicSummary,
 } from "./public-data";
@@ -330,15 +338,32 @@ type SharedDisplayConfig = {
   focus: FocusSession;
 };
 
-function isSharedAgendaEvent(value: unknown): value is AgendaEvent {
-  if (!value || typeof value !== "object") return false;
+function normalizeSharedAgendaEvent(value: unknown): AgendaEvent | null {
+  if (!value || typeof value !== "object") return null;
   const event = value as Partial<AgendaEvent>;
-  return (
-    typeof event.id === "string" &&
-    typeof event.title === "string" &&
-    typeof event.date === "string" &&
-    typeof event.time === "string"
-  );
+  if (
+    typeof event.id !== "string" ||
+    typeof event.title !== "string" ||
+    typeof event.date !== "string" ||
+    typeof event.time !== "string"
+  ) return null;
+  return {
+    id: event.id,
+    title: event.title,
+    date: event.date,
+    time: event.time,
+    kind: event.kind === "task" ? "task" : "reminder",
+    recurrence:
+      event.recurrence === "daily" ||
+      event.recurrence === "weekly" ||
+      event.recurrence === "monthly" ||
+      event.recurrence === "yearly"
+        ? event.recurrence
+        : "once",
+    completedDates: Array.isArray(event.completedDates)
+      ? event.completedDates.filter((item): item is string => typeof item === "string")
+      : [],
+  };
 }
 
 function isSharedFocus(value: unknown): value is FocusSession {
@@ -379,12 +404,15 @@ function decodeDisplayConfig(encoded: string): SharedDisplayConfig | null {
     if (!value || typeof value !== "object") return null;
     const candidate = value as Partial<SharedDisplayConfig>;
     if (!isSharedFocus(candidate.focus)) return null;
-    if (candidate.event !== null && !isSharedAgendaEvent(candidate.event)) return null;
+    const normalizedEvent = candidate.event === null || candidate.event === undefined
+      ? null
+      : normalizeSharedAgendaEvent(candidate.event);
+    if (candidate.event !== null && candidate.event !== undefined && !normalizedEvent) return null;
     const remainingSeconds = candidate.focus.running && candidate.focus.endsAt
       ? Math.max(0, Math.ceil((candidate.focus.endsAt - Date.now()) / 1000))
       : candidate.focus.remainingSeconds;
     return {
-      event: candidate.event ?? null,
+      event: normalizedEvent,
       focus: {
         ...candidate.focus,
         remainingSeconds,
@@ -410,10 +438,14 @@ function formatPublicDate(value: string | null): string {
 function LocalWidgetsPanel({
   events,
   nextEvent,
+  dueEvents,
+  notificationPermission,
   focus,
   todayKey,
   onAddEvent,
   onRemoveEvent,
+  onToggleEventCompleted,
+  onRequestNotifications,
   onUpdateFocus,
   onSetFocusDuration,
   onToggleFocus,
@@ -422,10 +454,14 @@ function LocalWidgetsPanel({
 }: {
   events: AgendaEvent[];
   nextEvent: AgendaEvent | null;
+  dueEvents: AgendaOccurrence[];
+  notificationPermission: NotificationPermission | "unsupported";
   focus: FocusSession;
   todayKey: string;
-  onAddEvent: (event: Omit<AgendaEvent, "id">) => boolean;
+  onAddEvent: (event: Omit<AgendaEvent, "id" | "completedDates">) => boolean;
   onRemoveEvent: (id: string) => void;
+  onToggleEventCompleted: (id: string, occurrenceDate: string) => void;
+  onRequestNotifications: () => Promise<NotificationPermission | "unsupported">;
   onUpdateFocus: (patch: Partial<FocusSession>) => void;
   onSetFocusDuration: (minutes: number) => void;
   onToggleFocus: () => void;
@@ -435,15 +471,24 @@ function LocalWidgetsPanel({
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(todayKey);
   const [time, setTime] = useState("09:00");
+  const [kind, setKind] = useState<AgendaKind>("reminder");
+  const [recurrence, setRecurrence] = useState<AgendaRecurrence>("once");
 
   const submitEvent = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!onAddEvent({ title, date, time })) {
+    if (!onAddEvent({ title, date, time, kind, recurrence })) {
       onToast("Preencha título, data e horário válidos.");
       return;
     }
     setTitle("");
-    onToast("Compromisso salvo neste navegador.");
+    onToast(recurrence === "once" ? "Item salvo neste navegador." : "Recorrência salva neste navegador.");
+  };
+
+  const activateNotifications = async () => {
+    const result = await onRequestNotifications();
+    if (result === "granted") onToast("Notificações locais ativadas enquanto o LumaBoard estiver aberto.");
+    else if (result === "denied") onToast("Permissão de notificações bloqueada pelo navegador.");
+    else onToast("Este navegador não oferece notificações locais.");
   };
 
   return (
@@ -451,28 +496,70 @@ function LocalWidgetsPanel({
       <header className="section-heading">
         <div>
           <span className="eyebrow">MEMÓRIA LOCAL</span>
-          <h2>Agenda e foco que funcionam offline.</h2>
+          <h2>Agenda recorrente, tarefas e foco.</h2>
         </div>
-        <span className="status-chip"><span className="status-dot" /> LOCALSTORAGE</span>
+        <div className="local-heading-actions">
+          <span className="status-chip"><span className="status-dot" /> LOCALSTORAGE</span>
+          <button className="button secondary" onClick={() => void activateNotifications()} disabled={notificationPermission === "granted" || notificationPermission === "unsupported"}>
+            <Bell /> {notificationPermission === "granted" ? "Alertas ativos" : "Ativar alertas"}
+          </button>
+        </div>
       </header>
+
+      {dueEvents.length > 0 && (
+        <div className="due-events panel" role="status">
+          <Bell />
+          <div><strong>{dueEvents.length === 1 ? "Há um item vencendo agora" : `${dueEvents.length} itens vencendo agora`}</strong><span>{dueEvents.map((item) => `${item.time} · ${item.title}`).join(" • ")}</span></div>
+        </div>
+      )}
+
       <div className="local-widgets-grid">
-        <article className="panel local-widget-card">
-          <header><CalendarDays /><div><strong>Agenda local</strong><span>{nextEvent ? `Próximo: ${nextEvent.time}` : "Nenhum compromisso futuro"}</span></div></header>
-          <form className="event-form" onSubmit={submitEvent}>
-            <input aria-label="Título do compromisso" placeholder="Novo compromisso" value={title} onChange={(event) => setTitle(event.target.value)} />
-            <input aria-label="Data" type="date" min={todayKey} value={date} onChange={(event) => setDate(event.target.value)} />
+        <article className="panel local-widget-card agenda-control-card">
+          <header><CalendarDays /><div><strong>Agenda local</strong><span>{nextEvent ? `Próximo: ${nextEvent.time} · ${formatPublicDate(nextEvent.date)}` : "Nenhum compromisso futuro"}</span></div></header>
+          <form className="event-form recurring-event-form" onSubmit={submitEvent}>
+            <input aria-label="Título" placeholder="Novo lembrete ou tarefa" value={title} onChange={(event) => setTitle(event.target.value)} />
+            <select aria-label="Tipo" value={kind} onChange={(event) => setKind(event.target.value as AgendaKind)}>
+              <option value="reminder">Lembrete</option>
+              <option value="task">Tarefa</option>
+            </select>
+            <select aria-label="Repetição" value={recurrence} onChange={(event) => setRecurrence(event.target.value as AgendaRecurrence)}>
+              <option value="once">Uma vez</option>
+              <option value="daily">Todo dia</option>
+              <option value="weekly">Toda semana</option>
+              <option value="monthly">Todo mês</option>
+              <option value="yearly">Todo ano</option>
+            </select>
+            <input aria-label="Data inicial" type="date" min={todayKey} value={date} onChange={(event) => setDate(event.target.value)} />
             <input aria-label="Horário" type="time" value={time} onChange={(event) => setTime(event.target.value)} />
             <button className="button primary" type="submit"><Plus /> Adicionar</button>
           </form>
-          <div className="event-list">
-            {events.length === 0 && <p>Os compromissos ficam somente neste navegador e entram na prévia automaticamente.</p>}
-            {events.slice(0, 4).map((item) => (
-              <div key={item.id}>
-                <span className="mono">{formatPublicDate(item.date)} · {item.time}</span>
-                <strong>{item.title}</strong>
-                <button className="icon-button compact" aria-label={`Excluir ${item.title}`} onClick={() => onRemoveEvent(item.id)}><Trash2 /></button>
-              </div>
-            ))}
+          <p className="local-note">Exemplo: selecione <strong>Todo mês</strong> e a data 26 para repetir no dia 26 de cada mês. Os alertas do navegador funcionam enquanto a página estiver aberta.</p>
+          <div className="event-list recurring-list">
+            {events.length === 0 && <p>Os itens ficam somente neste navegador e entram na prévia automaticamente.</p>}
+            {[...events]
+              .sort((a, b) => {
+                const nextA = getNextOccurrence(a, todayKey);
+                const nextB = getNextOccurrence(b, todayKey);
+                const keyA = nextA ? `${nextA.occurrenceDate}T${nextA.time}` : `9999-${a.date}T${a.time}`;
+                const keyB = nextB ? `${nextB.occurrenceDate}T${nextB.time}` : `9999-${b.date}T${b.time}`;
+                return keyA.localeCompare(keyB);
+              })
+              .slice(0, 8)
+              .map((item) => {
+              const next = getNextOccurrence(item, todayKey);
+              const occurrenceDate = next?.occurrenceDate ?? item.date;
+              const finished = !next && item.recurrence === "once" && item.completedDates.includes(item.date);
+              return (
+                <div className={finished ? "is-completed" : ""} key={item.id}>
+                  <span className="mono">{formatPublicDate(occurrenceDate)} · {item.time}</span>
+                  <div className="event-copy"><strong>{item.title}</strong><small>{item.kind === "task" ? "Tarefa" : "Lembrete"} · {recurrenceLabel(item.recurrence)}</small></div>
+                  <div className="event-actions">
+                    <button className="icon-button compact" aria-label={finished ? `Reabrir ${item.title}` : `Concluir ${item.title}`} onClick={() => onToggleEventCompleted(item.id, occurrenceDate)}><Check /></button>
+                    <button className="icon-button compact" aria-label={`Excluir ${item.title}`} onClick={() => onRemoveEvent(item.id)}><Trash2 /></button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </article>
 
@@ -481,7 +568,7 @@ function LocalWidgetsPanel({
           <strong className="local-focus-time mono">{formatTimer(focus.remainingSeconds)}</strong>
           <div className="focus-fields">
             <input aria-label="Projeto" value={focus.project} onChange={(event) => onUpdateFocus({ project: event.target.value })} />
-            <input aria-label="Tarefa" value={focus.task} onChange={(event) => onUpdateFocus({ task: event.target.value })} />
+            <input aria-label="Tarefa atual" value={focus.task} onChange={(event) => onUpdateFocus({ task: event.target.value })} />
             <label>Duração
               <select value={focus.durationMinutes} onChange={(event) => onSetFocusDuration(Number(event.target.value))} disabled={focus.running}>
                 <option value="15">15 min</option>
@@ -495,6 +582,7 @@ function LocalWidgetsPanel({
             <button className="button primary" onClick={onToggleFocus}>{focus.running ? <><Pause /> Pausar</> : <><Play /> Iniciar</>}</button>
             <button className="button secondary" onClick={onResetFocus}><RotateCcw /> Reiniciar</button>
           </div>
+          <p className="local-note">A tarefa do Pomodoro permanece até você alterá-la. Para tarefas concluíveis ou recorrentes, use a agenda acima.</p>
         </article>
       </div>
     </section>
@@ -539,6 +627,86 @@ function formatMoonPhase(value: string | null): string {
   return value ? labels[value] ?? value : "Lua indisponível";
 }
 
+
+function formatNewsDate(value: string | null): string {
+  if (!value) return "Agora";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Agora";
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function NewsCarousel({
+  label,
+  items,
+  emptyMessage,
+  accent,
+  secondary,
+}: {
+  label: string;
+  items: PublicNewsItem[];
+  emptyMessage: string;
+  accent: ReactNode;
+  secondary?: PublicAnimeItem[];
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const active = items.length ? items[activeIndex % items.length] : null;
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % items.length);
+    }, 8000);
+    return () => window.clearInterval(timer);
+  }, [items.length]);
+
+  useEffect(() => {
+    if (activeIndex >= items.length) queueMicrotask(() => setActiveIndex(0));
+  }, [activeIndex, items.length]);
+
+  const move = (direction: -1 | 1) => {
+    if (!items.length) return;
+    setActiveIndex((current) => (current + direction + items.length) % items.length);
+  };
+
+  return (
+    <article className="panel public-data-card news-carousel-card">
+      <header className="news-carousel-header">
+        <span className="metric-icon">{accent}</span>
+        <div><span>{label}</span><small>{items.length ? `${activeIndex + 1} de ${items.length}` : "Sem itens"}</small></div>
+        <div className="news-carousel-controls">
+          <button className="icon-button compact" aria-label={`Notícia anterior de ${label}`} onClick={() => move(-1)} disabled={items.length <= 1}><ChevronLeft /></button>
+          <button className="icon-button compact" aria-label={`Próxima notícia de ${label}`} onClick={() => move(1)} disabled={items.length <= 1}><ChevronRight /></button>
+        </div>
+      </header>
+      {active ? (
+        <div className="news-carousel-slide" aria-live="polite">
+          {active.imageUrl && (
+            // Dynamic images come from allowlisted public providers and cannot use a fixed Next.js host list.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={active.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          )}
+          <div className="news-carousel-copy">
+            <strong>{active.title}</strong>
+            <span>{active.source} · {formatNewsDate(active.publishedAt)}{active.score > 0 ? ` · ${active.score} interações` : ""}</span>
+            <a className="button secondary news-open-button" href={active.url} target="_blank" rel="noreferrer">Abrir notícia <ExternalLink /></a>
+          </div>
+        </div>
+      ) : <div className="news-carousel-empty">{emptyMessage}</div>}
+      {items.length > 1 && (
+        <div className="news-carousel-dots" aria-label={`Selecionar notícia de ${label}`}>
+          {items.map((item, index) => <button key={item.id} className={index === activeIndex ? "active" : ""} aria-label={`Abrir notícia ${index + 1}`} onClick={() => setActiveIndex(index)} />)}
+        </div>
+      )}
+      {secondary && secondary.length > 0 && (
+        <div className="anime-trending-strip">
+          <span>Em exibição</span>
+          {secondary.slice(0, 3).map((anime) => <a href={anime.url} target="_blank" rel="noreferrer" key={anime.id}>{anime.title}{anime.score === null ? "" : ` · ${anime.score.toFixed(1)}`}</a>)}
+        </div>
+      )}
+    </article>
+  );
+}
+
 function PublicDataPanel({
   summary,
   status,
@@ -570,7 +738,8 @@ function PublicDataPanel({
         {enabled.includes("air") && <article className="panel public-data-card"><span className="metric-icon"><Wind /></span><div><span>Qualidade do ar</span><strong>{summary.airQuality.europeanAqi ?? "—"} AQI</strong><small>{describeAqi(summary.airQuality.europeanAqi)} · PM2.5 {summary.airQuality.pm25 ?? "—"} µg/m³</small></div></article>}
         {enabled.includes("rates") && <article className="panel public-data-card"><span className="metric-icon"><DollarSign /></span><div><span>Câmbio</span><strong>{ratesReady ? `US$ ${summary.rates.usdBrl?.toFixed(2) ?? "—"}` : "Indisponível"}</strong><small>€ {summary.rates.eurBrl?.toFixed(2) ?? "—"} · {formatPublicDate(summary.rates.date)}</small></div></article>}
         {enabled.includes("holidays") && <article className="panel public-data-card"><span className="metric-icon"><CalendarDays /></span><div><span>Próximo feriado nacional</span><strong>{summary.nextHoliday?.name ?? "Consultando…"}</strong><small>{formatPublicDate(summary.nextHoliday?.date ?? null)} · BrasilAPI</small></div></article>}
-        {enabled.includes("news") && <article className="panel public-data-card news-card"><span className="metric-icon"><Newspaper /></span><div><span>Hacker News</span><strong>{summary.news[0]?.title ?? "Notícias indisponíveis"}</strong>{summary.news[0] && <a href={summary.news[0].url} target="_blank" rel="noreferrer">{summary.news[0].source} · {summary.news[0].score} pontos <ExternalLink /></a>}</div></article>}
+        {enabled.includes("news") && <NewsCarousel label="Tecnologia" items={summary.news} emptyMessage="Notícias de tecnologia indisponíveis" accent={<Newspaper />} />}
+        {enabled.includes("anime") && <NewsCarousel label="Notícias de anime" items={summary.anime.news} emptyMessage="Notícias de anime indisponíveis" accent={<Sparkles />} secondary={summary.anime.trending} />}
         {enabled.includes("economy") && <article className="panel public-data-card"><span className="metric-icon"><Landmark /></span><div><span>Economia do Brasil</span><strong>Selic {formatDecimal(summary.economy.selicAnnual, 2)}% a.a.</strong><small>IPCA mensal {formatDecimal(summary.economy.ipcaMonthly, 2)}% · Banco Central</small></div></article>}
         {enabled.includes("ibge") && <article className="panel public-data-card"><span className="metric-icon"><MapPin /></span><div><span>Município pelo IBGE</span><strong>{summary.ibge.municipality ?? "Local não identificado"}{summary.ibge.stateCode ? ` · ${summary.ibge.stateCode}` : ""}</strong><small>{summary.ibge.population !== null ? `${formatCompactNumber(summary.ibge.population)} habitantes · ${summary.ibge.populationYear ?? "estimativa"}` : summary.ibge.immediateRegion ?? "Dados regionais indisponíveis"}</small></div></article>}
         {enabled.includes("earthquakes") && <article className="panel public-data-card"><span className="metric-icon"><Activity /></span><div><span>Terremotos nas últimas 24h</span><strong>{summary.earthquakes.count24h} eventos</strong><small>{strongest ? `Maior M${formatDecimal(strongest.magnitude)} · ${strongest.place}` : "USGS sem eventos recentes"}{nearest && nearest.distanceKm !== null ? ` · mais próximo ${nearest.distanceKm} km` : ""}</small></div></article>}
@@ -933,10 +1102,14 @@ export function LumaBoardApp() {
           <LocalWidgetsPanel
             events={localWidgets.events}
             nextEvent={localWidgets.nextEvent}
+            dueEvents={localWidgets.dueEvents}
+            notificationPermission={localWidgets.notificationPermission}
             focus={localWidgets.focus}
             todayKey={localWidgets.todayKey}
             onAddEvent={localWidgets.addEvent}
             onRemoveEvent={localWidgets.removeEvent}
+            onToggleEventCompleted={localWidgets.toggleEventCompleted}
+            onRequestNotifications={localWidgets.requestNotifications}
             onUpdateFocus={localWidgets.updateFocus}
             onSetFocusDuration={localWidgets.setFocusDuration}
             onToggleFocus={localWidgets.toggleFocus}

@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type JsonRecord = Record<string, unknown>;
-type SearchType = "location" | "book" | "wikipedia" | "tv" | "food";
+type SearchType = "location" | "book" | "wikipedia" | "tv" | "anime" | "food";
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -12,6 +12,17 @@ function isRecord(value: unknown): value is JsonRecord {
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function safeHttpUrl(value: unknown): string | null {
+  const candidate = text(value);
+  if (!candidate) return null;
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -54,7 +65,7 @@ async function fetchJson(url: string, timeout = 9000): Promise<unknown> {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "LumaBoard/1.3 (+https://lumaboard.netlify.app)",
+        "User-Agent": "LumaBoard/1.4 (+https://lumaboard.netlify.app)",
       },
       next: { revalidate: 86400 },
     });
@@ -230,6 +241,38 @@ async function searchTv(query: string) {
   });
 }
 
+
+async function searchAnime(query: string) {
+  const url = new URL("https://api.jikan.moe/v4/anime");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "8");
+  url.searchParams.set("sfw", "true");
+  const payload = await fetchJson(url.toString());
+  const items = isRecord(payload) && Array.isArray(payload.data) ? payload.data.filter(isRecord) : [];
+  return items.flatMap((anime) => {
+    const id = numberOrNull(anime.mal_id);
+    const title = text(anime.title_english) || text(anime.title);
+    const url = safeHttpUrl(anime.url);
+    if (id === null || !title || !url) return [];
+    const images = isRecord(anime.images) ? anime.images : {};
+    const jpg = isRecord(images.jpg) ? images.jpg : {};
+    return [{
+      id: String(Math.round(id)),
+      title,
+      originalTitle: text(anime.title_japanese),
+      type: text(anime.type),
+      episodes: numberOrNull(anime.episodes),
+      status: text(anime.status),
+      score: numberOrNull(anime.score),
+      year: numberOrNull(anime.year),
+      synopsis: stripHtml(text(anime.synopsis)),
+      url,
+      imageUrl: safeHttpUrl(jpg.large_image_url) ?? safeHttpUrl(jpg.image_url),
+      source: "Jikan / MyAnimeList",
+    }];
+  });
+}
+
 async function searchFood(barcode: string) {
   const url = new URL(`https://world.openfoodfacts.org/api/v3.6/product/${barcode}.json`);
   url.searchParams.set("cc", "br");
@@ -273,6 +316,7 @@ function parseType(value: string | null): SearchType | null {
     value === "book" ||
     value === "wikipedia" ||
     value === "tv" ||
+    value === "anime" ||
     value === "food"
     ? value
     : null;
@@ -302,7 +346,9 @@ export async function GET(request: NextRequest) {
             ? await searchWikipedia(normalizedQuery)
             : type === "tv"
               ? await searchTv(normalizedQuery)
-              : await searchFood(normalizedQuery);
+              : type === "anime"
+                ? await searchAnime(normalizedQuery)
+                : await searchFood(normalizedQuery);
 
     return NextResponse.json(
       { type, query: normalizedQuery, updatedAt: new Date().toISOString(), results },
