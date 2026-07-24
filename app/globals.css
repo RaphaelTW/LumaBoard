@@ -2081,3 +2081,157 @@ body {
   .mobile-module-sheet { padding: 10px; }
   .mobile-module-sheet > div button { min-height: 68px; }
 }
+
+/* LumaBoard 1.7.0 — Calendar & Notifications */
+.agenda-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.agenda-summary-grid > article {
+  min-width: 0;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.agenda-summary-grid > article > svg { width: 22px; color: var(--accent); flex: 0 0 auto; }
+.agenda-summary-grid > article.warning > svg { color: var(--warning); }
+.agenda-summary-grid strong, .agenda-summary-grid span { display: block; }
+.agenda-summary-grid strong { font-size: 22px; }
+.agenda-summary-grid span { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+.reminder-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 9px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.reminder-fieldset legend { color: var(--text-muted); font-size: 10px; padding: 0 4px; }
+.reminder-fieldset label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.agenda-view-switch button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
+.agenda-view-switch svg { width: 14px; }
+.agenda-occurrence.overdue { box-shadow: inset 0 0 0 1px var(--warning); }
+.agenda-day-timeline { padding: 18px; }
+.agenda-day-timeline > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.agenda-day-timeline > header strong, .agenda-day-timeline > header span { display: block; }
+.agenda-day-timeline > header strong { margin-top: 4px; text-transform: capitalize; }
+.agenda-day-timeline > div { display: grid; gap: 8px; padding-top: 14px; }
+.agenda-timeline-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(180px, 280px);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0 10px 12px;
+  border-left: 3px solid var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+.agenda-timeline-item > time { font: 700 12px/1.2 ui-monospace, monospace; color: var(--accent); }
+.agenda-timeline-item > div strong, .agenda-timeline-item > div span { display: block; }
+.agenda-timeline-item > div span { color: var(--text-muted); font-size: 10px; margin-top: 3px; }
+.agenda-timeline-item > .agenda-occurrence { cursor: pointer; }
+.agenda-list-view { display: grid; gap: 10px; }
+.agenda-list-day { padding: 14px; }
+.agenda-list-day > header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; text-transform: capitalize; }
+.agenda-list-day > header span { color: var(--text-muted); font-size: 10px; }
+.agenda-list-day > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.agenda-empty-state { color: var(--text-muted); padding: 24px; text-align: center; }
+.occurrence-reschedule {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  padding: 0 18px 14px;
+}
+.occurrence-reschedule label { display: grid; gap: 5px; flex: 1; color: var(--text-muted); font-size: 11px; }
+.occurrence-reschedule input {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 9px;
+}
+.notification-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0;
+}
+.notification-settings-card { min-width: 0; padding: 17px; display: grid; align-content: start; gap: 12px; }
+.notification-settings-card > header { display: flex; gap: 10px; align-items: center; }
+.notification-settings-card > header > svg { width: 22px; color: var(--accent); flex: 0 0 auto; }
+.notification-settings-card > header strong, .notification-settings-card > header span { display: block; }
+.notification-settings-card > header span { margin-top: 3px; color: var(--text-muted); font-size: 10px; line-height: 1.4; }
+.notification-settings-card > label:not(.check-row), .notification-settings-card .two-columns label { display: grid; gap: 5px; color: var(--text-muted); font-size: 10px; }
+.notification-settings-card select, .notification-settings-card input[type="time"] { width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 6px; padding: 9px; }
+.notification-inbox-section { margin: 30px 0; }
+.notification-tabs { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; margin-bottom: 10px; }
+.notification-tabs button { border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 9px 13px; cursor: pointer; }
+.notification-tabs button:last-child { border-right: 0; }
+.notification-tabs button.active { background: var(--accent); color: var(--shell); }
+.notification-inbox-list { display: grid; gap: 8px; }
+.notification-inbox-item {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border-left: 3px solid var(--accent);
+}
+.notification-inbox-item.severity-warning { border-left-color: var(--warning); }
+.notification-inbox-item.severity-critical { border-left-color: #b13c3c; }
+.notification-inbox-item.read { opacity: .76; }
+.notification-inbox-item.dismissed { opacity: .5; }
+.notification-inbox-item > div strong, .notification-inbox-item > div span, .notification-inbox-item > div small { display: block; }
+.notification-inbox-item > div span { margin-top: 3px; color: var(--text-muted); font-size: 11px; }
+.notification-inbox-item > div small { margin-top: 5px; color: var(--text-muted); font-size: 9px; }
+.notification-item-actions { display: flex; gap: 6px; align-items: center; }
+.notification-quick-footer-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 1180px) {
+  .agenda-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .notification-settings-grid { grid-template-columns: 1fr; }
+  .agenda-timeline-item { grid-template-columns: 56px minmax(0, 1fr); }
+  .agenda-timeline-item > .agenda-occurrence { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .agenda-summary-grid { grid-template-columns: 1fr 1fr; }
+  .agenda-summary-grid > article { padding: 12px; }
+  .agenda-summary-grid strong { font-size: 18px; }
+  .agenda-toolbar { align-items: stretch; flex-direction: column; min-width: 0; }
+  .agenda-period { justify-content: space-between; min-width: 0; }
+  .agenda-period strong { min-width: 0; flex: 1; font-size: 12px; }
+  .agenda-view-switch { width: 100%; overflow-x: auto; }
+  .agenda-view-switch button { flex: 1; min-width: max-content; }
+  .agenda-filter-bar { min-width: 0; flex-wrap: wrap; }
+  .agenda-filter-bar input { flex: 1 1 100%; min-width: 0; }
+  .agenda-filter-bar select { flex: 1 1 140px; min-width: 0; }
+  .agenda-calendar-column { overflow-x: visible; }
+  .agenda-calendar-grid.month, .agenda-calendar-grid.week { min-width: 720px; }
+  .agenda-calendar-column:has(.agenda-calendar-grid.month), .agenda-calendar-column:has(.agenda-calendar-grid.week) { overflow-x: auto; }
+  .agenda-list-day > div { grid-template-columns: 1fr; }
+  .agenda-day-timeline > header { align-items: stretch; flex-direction: column; }
+  .notification-inbox-item { grid-template-columns: 1fr; }
+  .notification-inbox-item .notification-type { order: -1; }
+  .notification-item-actions { flex-wrap: wrap; }
+  .notification-item-actions .button { flex: 1; }
+  .occurrence-reschedule { align-items: stretch; flex-direction: column; }
+}
+
+@media (max-width: 480px) {
+  .agenda-summary-grid { grid-template-columns: 1fr; }
+  .reminder-fieldset { grid-template-columns: 1fr 1fr; }
+  .agenda-timeline-item { grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+  .notification-tabs { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+  .notification-tabs button { padding-inline: 6px; }
+  .notification-quick-footer-actions { display: grid; grid-template-columns: 1fr; }
+}

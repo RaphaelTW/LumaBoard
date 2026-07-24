@@ -1024,8 +1024,8 @@ export function LumaBoardApp() {
   }), [now, weather, localWidgets.focus, localWidgets.upcomingEvents, localWidgets.overdueTasks.length, publicSummary, musicCache]);
 
   const notificationCount =
+    localWidgets.unreadNotificationCount +
     localWidgets.overdueTasks.length +
-    localWidgets.dueEvents.length +
     (pwa.updateAvailable ? 1 : 0) +
     (publicDataStatus === "error" ? 1 : 0) +
     (weatherStatus === "error" ? 1 : 0) +
@@ -1336,14 +1336,14 @@ export function LumaBoardApp() {
               </header>
               <div className="notification-quick-list">
                 {notificationCount === 0 && <p><Check /> Nenhuma tarefa vencida, falha ou atualização pendente.</p>}
+                {localWidgets.notificationInbox.filter((item) => !item.readAt).slice(0, 4).map((item) => <button key={item.id} onClick={() => { localWidgets.markNotificationRead(item.id); setActiveView("agenda"); setNotificationPanelOpen(false); }}><Bell /><span><strong>{item.title}</strong><small>{item.body}</small></span></button>)}
                 {localWidgets.overdueTasks.length > 0 && <button onClick={() => { setActiveView("agenda"); setNotificationPanelOpen(false); }}><CalendarDays /><span><strong>{localWidgets.overdueTasks.length} tarefa(s) atrasada(s)</strong><small>Abrir agenda e concluir ou reagendar.</small></span></button>}
-                {localWidgets.dueEvents.length > 0 && <button onClick={() => { setActiveView("agenda"); setNotificationPanelOpen(false); }}><Bell /><span><strong>{localWidgets.dueEvents.length} lembrete(s) vencendo agora</strong><small>Ver compromissos próximos.</small></span></button>}
                 {pwa.updateAvailable && <button onClick={() => { setActiveView("experience"); setNotificationPanelOpen(false); }}><CloudDownload /><span><strong>Atualização disponível</strong><small>Abra Experiência para proteger os dados e atualizar.</small></span></button>}
                 {(publicDataStatus === "error" || weatherStatus === "error") && <button onClick={() => { setActiveView("diagnostics"); setNotificationPanelOpen(false); }}><Wrench /><span><strong>Uma fonte pública falhou</strong><small>Abrir diagnóstico das APIs.</small></span></button>}
                 {!pwa.online && <button onClick={() => { setActiveView("experience"); setNotificationPanelOpen(false); }}><WifiOff /><span><strong>Você está offline</strong><small>O LumaBoard está usando os últimos dados em cache.</small></span></button>}
                 {localWidgets.notificationPermission !== "granted" && localWidgets.notificationPermission !== "unsupported" && <button onClick={() => { void localWidgets.requestNotifications().then((permission) => { setToast(permission === "granted" ? "Notificações locais ativadas." : "Permissão de notificações não concedida."); }); }}><Bell /><span><strong>Ativar alertas locais</strong><small>Funcionam enquanto o LumaBoard estiver aberto.</small></span></button>}
               </div>
-              <footer><button className="button primary full" onClick={() => { setActiveView("experience"); setNotificationPanelOpen(false); }}>Abrir central completa</button></footer>
+              <footer><div className="notification-quick-footer-actions">{localWidgets.unreadNotificationCount > 0 && <button className="button secondary" onClick={localWidgets.markAllNotificationsRead}>Marcar lidas</button>}<button className="button primary" onClick={() => { setActiveView("experience"); setNotificationPanelOpen(false); }}>Abrir central completa</button></div></footer>
             </section>
           </div>
         )}

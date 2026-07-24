@@ -84,15 +84,28 @@ describe("agenda recurrence", () => {
       repeatDays: [1, 3],
       endDate: "2026-09-30",
       notes: "Planejamento\nEquipe",
+      location: "Sala 2",
+      durationMinutes: 60,
+      reminderMinutesList: [1440, 30],
+      reminderMinutes: 30,
+      priority: "high",
     });
     const text = exportAgendaICS([source]);
     expect(text).toContain("RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20260930T235959");
     expect(text).not.toContain("\r\nUNTIL:");
+    expect(text).toContain("LOCATION:Sala 2");
+    expect(text).toContain("DTEND:20260726T100000");
+    expect(text).toContain("TRIGGER:-P1D");
+    expect(text).toContain("TRIGGER:-PT30M");
     const imported = importAgendaICS(text);
     expect(imported).toHaveLength(1);
     expect(imported[0].recurrence).toBe("weekly");
     expect(imported[0].repeatDays).toEqual([1, 3]);
     expect(imported[0].endDate).toBe("2026-09-30");
+    expect(imported[0].location).toBe("Sala 2");
+    expect(imported[0].durationMinutes).toBe(60);
+    expect(imported[0].reminderMinutesList).toEqual([1440, 30]);
+    expect(imported[0].priority).toBe("high");
   });
 
 });

@@ -9,9 +9,27 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.6.4 — Quality Gate & Build Validation** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.7.0 — Calendar & Notifications** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
+
+## Destaques da versão 1.7.0
+
+- calendário local com visualizações de **mês, semana, dia e lista de 90 dias**;
+- resumo de itens abertos hoje, tarefas atrasadas, conclusões recentes e prioridades altas;
+- edição de uma ocorrência, desta e das próximas ocorrências ou de toda a série;
+- reagendamento por arrastar no desktop e por seletor de data no celular;
+- duração, local, prioridade, notas, subtarefas e até cinco alertas por item;
+- exportação e importação `.ics` com `DTEND`, `LOCATION`, `PRIORITY`, `EXDATE` e `VALARM`;
+- caixa de entrada local para notificações, com lidos, histórico, dispensa e adiamento;
+- horário silencioso configurável, retenção do histórico e notificação de teste;
+- alertas entregues pelo service worker quando disponível, com retorno direto à agenda;
+- sino do cabeçalho integrado às notificações reais da agenda;
+- armazenamento migrado para a versão 7, preservando os dados das releases anteriores.
+
+### Limite importante das notificações
+
+O LumaBoard continua sem servidor de push, conta ou banco. Os alertas do navegador são avaliados enquanto o site ou a PWA estão abertos. A caixa de entrada, o histórico e os adiamentos ficam no `localStorage` e continuam disponíveis offline. Com o aplicativo completamente encerrado, o sistema operacional não garante a execução dos lembretes.
 
 ## Destaques da versão 1.6.4
 
@@ -55,7 +73,7 @@ Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelo
 - restauração da última área aberta e opção de iniciar diretamente em `/display`;
 - sincronização das APIs quando a conexão retorna;
 - Central de Notificações inteiramente local;
-- agenda mensal e semanal com arrastar e soltar, recorrência avançada e `.ics`;
+- agenda mensal, semanal, diária e em lista, com recorrência avançada, múltiplos alertas e `.ics`;
 - temas Papel, Noturno, OLED e E-paper, além de temas personalizados por layout;
 - galeria com dez modelos locais;
 - validação de backup, limites de tamanho, recuperação de dados corrompidos e migração automática;
@@ -342,7 +360,9 @@ Os tipos são uma allowlist. A rota não aceita URL externa arbitrária e, porta
 | Chave | Conteúdo |
 | --- | --- |
 | `lumaboard-agenda` | agenda avançada, recorrências, subtarefas, exceções e conclusões |
-| `lumaboard-agenda-notifications` | ocorrências já notificadas |
+| `lumaboard-agenda-notifications` | chaves de ocorrências já notificadas |
+| `lumaboard-notification-inbox-v1` | caixa de entrada, leitura, dispensa e adiamentos locais |
+| `lumaboard-notification-settings-v1` | horário silencioso, retenção e preferências de alerta |
 | `lumaboard-focus` | Pomodoro, projeto e tarefa atual |
 | `lumaboard-dashboard-v2` | layouts, widgets, playlists e modo display |
 | `lumaboard-theme-v2` | temas, tema global e temas por layout |

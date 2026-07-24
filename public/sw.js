@@ -1,5 +1,5 @@
-/* LumaBoard v1.6.4 service worker */
-const VERSION = "1.6.4";
+/* LumaBoard v1.7.0 service worker */
+const VERSION = "1.7.0";
 const STATIC_CACHE = `lumaboard-static-${VERSION}`;
 const PAGE_CACHE = `lumaboard-pages-${VERSION}`;
 const API_CACHE = `lumaboard-api-${VERSION}`;
@@ -118,4 +118,20 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/") || /\.(?:css|js|woff2?|png|jpg|jpeg|svg|webp)$/.test(url.pathname)) {
     event.respondWith(staleWhileRevalidate(request));
   }
+});
+
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      const existing = clients.find((client) => client.url.startsWith(self.location.origin));
+      if (existing) {
+        const navigated = await existing.navigate(targetUrl);
+        return (navigated || existing).focus();
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
 });

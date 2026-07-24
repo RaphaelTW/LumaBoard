@@ -10,7 +10,6 @@ const CACHE_KEYS = [
   "lumaboard-public-data-v2",
   "lumaboard-public-explorer-v1",
   "lumaboard-music-v1",
-  "lumaboard-agenda-notifications",
 ];
 
 export function DiagnosticsModule({

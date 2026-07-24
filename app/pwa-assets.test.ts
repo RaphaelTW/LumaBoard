@@ -26,4 +26,11 @@ describe("PWA assets", () => {
     expect(worker).toContain('event.data?.type === "SKIP_WAITING"');
     expect(worker).toContain("cachePageWithAssets");
   });
+
+  it("returns notification clicks to the agenda", () => {
+    const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
+    expect(worker).toContain('addEventListener("notificationclick"');
+    expect(worker).toContain("clients.openWindow");
+    expect(readFileSync(resolve(process.cwd(), "app/local-widgets.ts"), "utf8")).toContain('/?view=agenda');
+  });
 });

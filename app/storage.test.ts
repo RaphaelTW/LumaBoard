@@ -46,7 +46,7 @@ describe("local backup storage", () => {
       studio: JSON.stringify({ screenName: "Manhã" }),
       playlist: JSON.stringify([{ id: 1 }]),
     });
-    expect(migrated?.version).toBe(6);
+    expect(migrated?.version).toBe(7);
     expect(migrated?.data["lumaboard-studio"]).toEqual({ screenName: "Manhã" });
   });
 

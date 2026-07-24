@@ -1,6 +1,6 @@
 "use client";
 
-export const STORAGE_VERSION = 6;
+export const STORAGE_VERSION = 7;
 export const MAX_STORAGE_ITEM_BYTES = 1_500_000;
 export const MAX_BACKUP_BYTES = 4_500_000;
 
@@ -17,6 +17,8 @@ export type StorageKey =
   | "lumaboard-plugins"
   | "lumaboard-agenda"
   | "lumaboard-agenda-notifications"
+  | "lumaboard-notification-inbox-v1"
+  | "lumaboard-notification-settings-v1"
   | "lumaboard-focus"
   | "lumaboard-public-data-v1"
   | "lumaboard-public-data-v2"
@@ -59,6 +61,8 @@ export const managedKeys: StorageKey[] = [
   "lumaboard-plugins",
   "lumaboard-agenda",
   "lumaboard-agenda-notifications",
+  "lumaboard-notification-inbox-v1",
+  "lumaboard-notification-settings-v1",
   "lumaboard-focus",
   "lumaboard-public-data-v1",
   "lumaboard-public-data-v2",
@@ -233,6 +237,8 @@ export function resetSettingsPreservingPersonalData() {
   const preserve = new Set<StorageKey>([
     "lumaboard-agenda",
     "lumaboard-agenda-notifications",
+    "lumaboard-notification-inbox-v1",
+    "lumaboard-notification-settings-v1",
     "lumaboard-focus",
     "lumaboard-news-state-v1",
     "lumaboard-music-v1",

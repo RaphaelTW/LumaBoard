@@ -2,6 +2,34 @@
 
 Todas as mudanças relevantes do LumaBoard são registradas neste arquivo. O projeto usa versionamento semântico.
 
+## [1.7.0] - 2026-07-24
+
+### Adicionado
+
+- Visualizações de calendário mensal, semanal, diária e lista dos próximos 90 dias.
+- Resumo local de itens abertos hoje, tarefas atrasadas, conclusões recentes e prioridades altas.
+- Campos de duração e local, além de até cinco alertas por tarefa ou lembrete.
+- Edição somente desta ocorrência, desta e das próximas ou de toda a série recorrente.
+- Reagendamento por seletor de data para celulares, além do arrastar e soltar no desktop.
+- Duplicação e exclusão de uma única ocorrência sem apagar a série.
+- Caixa de entrada local de notificações com estados lido, dispensado e adiado.
+- Horário silencioso, adiamento padrão, retenção configurável e notificação de teste.
+- Alertas usam o service worker quando disponível; ao tocar, o aplicativo retorna diretamente à agenda.
+- Exportação `.ics` enriquecida com duração, local, prioridade, exceções e alarmes.
+- Importação `.ics` compatível com `DTEND`, `LOCATION`, `PRIORITY`, `EXDATE` e `VALARM`.
+- Testes específicos do sistema de notificações, quatro visualizações e armazenamento v7.
+
+### Alterado
+
+- O sino do cabeçalho passa a mostrar notificações reais da agenda e permite marcar todas como lidas.
+- A Central de Notificações separa a caixa de entrada da agenda dos avisos de APIs, PWA e armazenamento.
+- O armazenamento local passa para a versão 7 e inclui preferências e histórico de notificações nos backups.
+- Cache PWA e versão instalada atualizados para 1.7.0.
+
+### Limitações conhecidas
+
+- Sem servidor de push, os popups do navegador são avaliados somente enquanto o LumaBoard está aberto. O histórico e os adiamentos continuam locais e offline.
+
 ## [1.6.4] - 2026-07-24
 
 ### Corrigido
