@@ -12,7 +12,7 @@ import {
   Sparkles,
   Timer,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { AgendaOccurrence, FocusSession } from "./local-widgets";
 import type { PublicAnimeItem, PublicNewsItem, PublicSummary } from "./public-data";
 import type { WeatherSnapshot } from "./weather";
@@ -24,6 +24,7 @@ import {
   readMusicCache,
 } from "./dashboard-config";
 import { formatTimer } from "./local-widgets";
+import { themeCssVariables, useThemeForLayout } from "./theme-system";
 
 export type DashboardRenderData = {
   now: Date;
@@ -176,10 +177,11 @@ export function DashboardRenderer({
   data: DashboardRenderData;
   className?: string;
 }) {
+  const layoutTheme = useThemeForLayout(layout.id);
   return (
     <section
       className={`dashboard-renderer renderer-bg-${layout.background} ${className}`}
-      style={{ gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))`, gap: layout.gap }}
+      style={{ ...themeCssVariables(layoutTheme), gridTemplateColumns: `repeat(${layout.columns}, minmax(0, 1fr))`, gap: layout.gap } as CSSProperties}
       aria-label={layout.name}
     >
       {layout.widgets.filter((widget) => widget.enabled).map((widget) => (

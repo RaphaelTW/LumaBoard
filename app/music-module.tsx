@@ -101,7 +101,7 @@ export function MusicModule({ onToast }: { onToast: (message: string) => void })
     const audio = new Audio(url);
     audioRef.current = audio;
     audio.addEventListener("ended", () => setPlayingId(""), { once: true });
-    audio.addEventListener("error", () => { setPlayingId(""); onToast("O provedor de áudio não permitiu reproduzir esta fonte."); }, { once: true });
+    audio.addEventListener("error", () => { setPlayingId(""); window.dispatchEvent(new CustomEvent("lumaboard:audio-error", { detail: { id, occurredAt: new Date().toISOString(), message: "O provedor de áudio não permitiu reproduzir esta fonte." } })); onToast("O provedor de áudio não permitiu reproduzir esta fonte."); }, { once: true });
     try {
       await audio.play();
       setPlayingId(id);

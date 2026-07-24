@@ -1,28 +1,48 @@
 # LumaBoard
 
-> Painéis ambientes local-first, sem conta obrigatória, sem chave de API e sem banco de dados.
+> Painéis ambientes local-first, instaláveis e resilientes, sem conta obrigatória, sem chave de API e sem banco de dados.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-151713?logo=nextdotjs)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-151713?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-35513A?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PWA](https://img.shields.io/badge/PWA-offline-35513A)](https://web.dev/learn/pwa/)
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.5** monta e exibe conteúdo para navegadores, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, Pomodoro, playlists, fontes, pesquisas, localização escolhida e preferências ficam no `localStorage` do navegador. O servidor não mantém sessão e não grava SQLite, JSON ou banco.
+O **LumaBoard 1.6 — PWA & Offline Experience** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
-## Princípio de custo
+Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
 
-A arquitetura foi desenhada para não exigir assinatura de banco, autenticação, OAuth ou compra de chave de API:
+## Destaques da versão 1.6.0
 
-- dados pessoais e configurações ficam no `localStorage`;
-- respostas válidas das APIs também ficam em cache local;
+- PWA instalável com service worker próprio e atualização controlada pelo usuário;
+- app shell, páginas principais, ícones e arquivos estáticos disponíveis offline;
+- tela offline personalizada e fallback para os últimos dados públicos salvos;
+- aviso de nova versão, botão **Atualizar agora** e backup temporário antes do recarregamento;
+- restauração da última área aberta e opção de iniciar diretamente em `/display`;
+- sincronização das APIs quando a conexão retorna;
+- Central de Notificações inteiramente local;
+- agenda mensal e semanal com arrastar e soltar, recorrência avançada e `.ics`;
+- temas Papel, Noturno, OLED e E-paper, além de temas personalizados por layout;
+- galeria com dez modelos locais;
+- validação de backup, limites de tamanho, recuperação de dados corrompidos e migração automática;
+- tratamento global de erros e monitor básico de desempenho.
+
+## Princípio de custo e privacidade
+
+A arquitetura foi desenhada para funcionar sem autenticação, OAuth, assinatura de banco ou compra de chave de API:
+
+- dados pessoais e configurações permanecem no navegador;
+- respostas válidas das APIs ficam em cache no `localStorage` e no service worker;
 - as rotas do Next.js funcionam como Netlify Functions **sem estado**;
-- as Functions aceitam apenas provedores definidos no código;
-- consultas mais pesadas são feitas somente quando o usuário envia o formulário;
-- respostas públicas recebem `Cache-Control` para aproveitar a CDN;
-- se uma fonte falhar, as outras continuam sendo exibidas e o navegador usa o último cache válido.
+- nenhuma Function grava SQLite, arquivo JSON ou sessão persistente;
+- as Functions aceitam somente provedores definidos no código;
+- pesquisas mais pesadas são executadas sob demanda;
+- respostas públicas usam cache HTTP/CDN;
+- a falha de uma fonte não invalida as demais;
+- não há telemetria própria, conta de usuário ou sincronização silenciosa entre aparelhos.
 
-Isso evita um serviço persistente pago, mas não torna hospedagem e APIs ilimitadas. O plano gratuito do Netlify e cada provedor possuem cotas e termos próprios. Aumente o intervalo de atualização se o projeto receber muito tráfego.
+O plano gratuito da hospedagem e cada API continuam sujeitos a limites próprios. O cache reduz chamadas, mas não transforma os serviços em recursos ilimitados.
 
 ## Executar localmente
 
@@ -35,7 +55,7 @@ npm run dev
 
 Abra `http://localhost:3000`.
 
-Validação:
+Validação recomendada:
 
 ```bash
 npm test
@@ -43,45 +63,131 @@ npm run lint
 npm run build
 ```
 
-## Funcionalidades reais
+## PWA e experiência offline
+
+O arquivo `public/sw.js` implementa o service worker sem dependência adicional. Ele mantém caches separados para:
+
+- app shell e arquivos estáticos;
+- páginas principais (`/`, `/display` e `/offline`);
+- respostas das rotas `/api/public/*`;
+- ícones e manifesto de instalação.
+
+Navegações e APIs usam estratégia **network first**, com fallback para cache. Arquivos estáticos usam **stale while revalidate**. A aplicação não aplica `skipWaiting` automaticamente: uma atualização fica aguardando até o usuário escolher **Atualizar agora**, evitando a troca de código no meio de uma edição.
+
+Antes da atualização, o LumaBoard cria:
+
+- um snapshot temporário das chaves `lumaboard-*`;
+- um backup validado na sessão;
+- uma opção de recuperação na área **Experiência** após o recarregamento.
+
+Sem internet, continuam disponíveis:
+
+- layouts e modo display já carregados;
+- agenda, tarefas e subtarefas;
+- Pomodoro;
+- temas e modelos já aplicados;
+- notícias, clima e dados públicos do último cache válido;
+- favoritos e configurações locais.
+
+Novas respostas externas dependem de conexão. Ao reconectar, o aplicativo dispara uma atualização de clima e dados públicos e mostra se o conteúdo está **atual**, **online** ou **em cache**.
+
+### Instalação
+
+| Plataforma | Procedimento |
+| --- | --- |
+| Android | Chrome → menu ⋮ → **Instalar app** ou **Adicionar à tela inicial** |
+| Windows | Edge/Chrome → ícone de instalação na barra de endereço |
+| macOS | Safari → Arquivo → **Adicionar ao Dock**; no Chrome, use **Instalar** |
+| iPhone/iPad | Safari → Compartilhar → **Adicionar à Tela de Início** |
+
+O manifesto inclui ícones de 72 a 512 pixels, ícone maskable, atalhos para Display, Agenda e Estúdio e splash screens para tamanhos comuns de iPhone, Android e tablet.
+
+## Central de Notificações
+
+A central reúne, sem servidor:
+
+- tarefas vencidas;
+- próximos compromissos;
+- alertas de chuva registrados;
+- falhas e respostas antigas das APIs;
+- atualização da PWA disponível;
+- rádio ou prévia de áudio interrompida;
+- notícias salvas;
+- erros recuperados da interface;
+- problemas de quota, serialização ou corrupção no armazenamento;
+- lembretes dispensados, que podem ser restaurados.
+
+As notificações do sistema operacional dependem da Notifications API e funcionam enquanto o LumaBoard está aberto. Sem push e sem backend persistente, não há garantia de alerta com o navegador totalmente encerrado ou o aparelho suspenso.
+
+## Agenda avançada
+
+Cada item pode ser **Tarefa** ou **Lembrete** e suporta:
+
+- ocorrência única, diária, semanal, mensal ou anual;
+- dias específicos da semana;
+- data final da recorrência;
+- aviso na hora, 5, 10 ou 30 minutos antes, 1 hora, 1 dia ou 1 semana antes;
+- prioridade baixa, normal ou alta;
+- categoria, cor, notas e até 50 subtarefas;
+- conclusão por ocorrência;
+- pesquisa e filtros;
+- visualização mensal e semanal;
+- arrastar uma ocorrência para outra data;
+- editar apenas uma ocorrência ou toda a série;
+- exportar e importar calendários `.ics` de até 2 MB.
+
+Ao mover ou editar uma ocorrência de uma série, o LumaBoard cria uma exceção local e preserva as demais datas. Eventos mensais em dias inexistentes, como 31 de fevereiro, pulam para o próximo mês que contém aquele dia.
+
+## Temas e acessibilidade
+
+A área **Aparência** oferece:
+
+- Papel, Noturno, OLED e E-paper;
+- temas personalizados;
+- tema global ou um tema diferente por layout;
+- editor de cor principal, fundo, superfície, texto e bordas;
+- fundo sólido, gradiente ou imagem local de até 700 KB;
+- fonte do sistema, serifada ou monoespaçada;
+- escala da interface;
+- contraste automático e medição da razão de contraste;
+- importação e exportação de temas em JSON.
+
+Imagens de fundo não são enviadas ao servidor. Elas ficam no navegador e passam pelos limites preventivos do armazenamento.
+
+## Galeria de modelos
+
+Os modelos ficam no código do projeto e não exigem download:
+
+1. Painel doméstico;
+2. Painel de trabalho;
+3. Central de notícias;
+4. Painel anime;
+5. Rádio e música;
+6. Relógio de mesa;
+7. Painel e-paper;
+8. Painel para televisão;
+9. Rotina infantil;
+10. Painel de estudos.
+
+Ao aplicar um modelo, um novo layout é criado no Estúdio e recebe o tema recomendado sem apagar layouts existentes.
+
+## Funcionalidades gerais
 
 - localização pela máquina, por IP aproximado ou por cidade pesquisada;
 - clima atual, previsão horária e alerta de chuva;
-- agenda local com lembretes e tarefas de ocorrência única, diária, semanal, mensal ou anual;
-- conclusão por ocorrência e notificações do navegador enquanto o LumaBoard estiver aberto;
-- Pomodoro funcional, tarefa atual e duração configurável;
-- qualidade do ar, câmbio, feriados, carrossel de notícias de tecnologia, Selic, IPCA e dados do IBGE;
-- carrossel de notícias de anime e lista de títulos atualmente em exibição;
-- terremotos mundiais e distância do evento mais próximo;
-- altitude, vazão de rios, condição marítima e horários solares;
-- livro e artigo em destaque, além da programação de TV disponível;
-- pesquisa sob demanda de cidades, livros, Wikipédia, séries, animes e alimentos;
-- Biblioteca para ativar ou ocultar fontes opcionais;
-- Estúdio Visual com drag-and-drop, redimensionamento, colunas, fontes, transparência, bordas e múltiplos layouts;
-- playlists reais por dias e horários, duração de tela, transições, aleatoriedade e pausa por interação;
-- modo display em `/display`, tela cheia, cache offline, Wake Lock quando suportado e cursor automático;
-- compartilhamento por link, QR code e arquivo JSON, sem conta ou banco;
-- busca global, atalhos de teclado, diagnóstico das APIs e limpeza seletiva de cache;
-- notícias marcadas como lidas, salvas, filtradas por fonte, por imagem e com velocidade configurável;
-- sugestões musicais por gênero, prévias de 30 segundos, rádios ao vivo e favoritos locais;
-- backup e restauração em JSON de todas as chaves gerenciadas;
-- tema claro e noturno;
-- atualização configurável entre 5 e 60 minutos;
-- botão externo para pesquisar o gênero ou faixa no Spotify, sem usar a Web API do Spotify.
-
-## Agenda, tarefas e lembretes
-
-Cada item da agenda pode ser criado como **Lembrete** ou **Tarefa** e configurado como:
-
-- uma vez;
-- todos os dias;
-- toda semana, no mesmo dia da semana;
-- todo mês, no mesmo dia do mês;
-- todo ano, no mesmo mês e dia.
-
-Para repetir no dia 26, escolha uma data cujo dia seja 26 e selecione **Todo mês**. Para outro assunto no dia 10, crie um segundo item mensal com o dia 10. A conclusão é registrada por ocorrência: uma tarefa mensal concluída em julho volta a aparecer em agosto. Uma tarefa de ocorrência única permanece no histórico local e pode ser reaberta ou excluída.
-
-O botão **Ativar alertas** solicita permissão da Notifications API. Como o projeto não usa push, servidor persistente ou conta, o navegador só consegue disparar o alerta enquanto o LumaBoard estiver aberto. Se a página estiver fechada ou o dispositivo suspenso, não há garantia de notificação em segundo plano.
+- Pomodoro funcional com restauração do tempo;
+- qualidade do ar, câmbio, feriados, economia e dados do IBGE;
+- carrosséis de tecnologia e anime;
+- terremotos, altitude, rios, condições marítimas e horários solares;
+- livros, Wikipédia, televisão, animes e alimentos;
+- editor visual com drag-and-drop, redimensionamento e múltiplos layouts;
+- playlists de layouts por dia e horário;
+- modo display em `/display`, tela cheia e Wake Lock quando suportado;
+- compartilhamento por link, QR code e JSON;
+- busca global e atalhos de teclado;
+- descoberta musical, prévias curtas e rádios por gênero sem autenticação;
+- diagnóstico das fontes e limpeza seletiva de cache;
+- backup e restauração validada.
 
 ## APIs e serviços usados
 
@@ -186,58 +292,114 @@ Os tipos são uma allowlist. A rota não aceita URL externa arbitrária e, porta
 
 | Chave | Conteúdo |
 | --- | --- |
-| `lumaboard-agenda` | lembretes, tarefas, recorrências e conclusões por data |
-| `lumaboard-agenda-notifications` | ocorrências já notificadas para evitar alertas duplicados |
-| `lumaboard-focus` | projeto, tarefa e estado do Pomodoro |
+| `lumaboard-agenda` | agenda avançada, recorrências, subtarefas, exceções e conclusões |
+| `lumaboard-agenda-notifications` | ocorrências já notificadas |
+| `lumaboard-focus` | Pomodoro, projeto e tarefa atual |
+| `lumaboard-dashboard-v2` | layouts, widgets, playlists e modo display |
+| `lumaboard-theme-v2` | temas, tema global e temas por layout |
+| `lumaboard-pwa-v1` | início no display, última sincronização e cache |
+| `lumaboard-notification-center-v1` | notificações e lembretes dispensados |
+| `lumaboard-last-view-v1` | última área aberta |
 | `lumaboard-public-data-v2` | último resumo válido das APIs públicas |
-| `lumaboard-public-explorer-v1` | últimas consultas e resultados sob demanda |
-| `lumaboard-refresh-minutes` | intervalo automático das fontes |
-| `lumaboard-location-v1` | última localização automática ou manual |
+| `lumaboard-public-explorer-v1` | pesquisas sob demanda |
 | `lumaboard-weather-v1` | último clima válido |
-| `lumaboard-studio` | rascunho do Estúdio |
-| `lumaboard-playlist` | playlist local |
-| `lumaboard-devices` | perfis locais de display |
-| `lumaboard-plugins` | fontes opcionais visíveis |
-| `lumaboard-rules` | alerta de chuva e histórico |
-| `lumaboard-dashboard-v2` | layouts, widgets, propriedades, playlists e configurações do modo display |
-| `lumaboard-music-v1` | gênero, sugestões, rádios e favoritos musicais |
-| `lumaboard-news-preferences-v1` | fonte, velocidade, filtro por imagem e modo somente salvas |
+| `lumaboard-location-v1` | localização automática ou manual |
+| `lumaboard-music-v1` | gênero, sugestões, rádios e favoritos |
+| `lumaboard-news-preferences-v1` | filtros e velocidade dos carrosséis |
 | `lumaboard-news-state-v1` | notícias lidas e salvas |
+| `lumaboard-rules` | alerta de chuva e histórico |
+| `lumaboard-performance-v1` | última medição local de desempenho |
+| `lumaboard-storage-issues-v1` | falhas locais de quota, tamanho ou corrupção |
+| `lumaboard-client-errors-v1` | erros recuperados pela barreira global |
+| `lumaboard-backup-meta` | versão e data do último backup importado |
 
-A versão 1.5 preserva os dados da versão 1.4 e migra a agenda simples das versões anteriores para lembretes únicos e reconhece as seleções padrão das versões 1.2 e 1.3, ativando a nova fonte de anime sem apagar os demais dados. A chave antiga `lumaboard-public-data-v1` permanece na lista de backup para permitir migração e pode ser removida manualmente depois.
+A versão de armazenamento atual é **6**. Dados antigos são normalizados e migrados, incluindo agenda simples, temas claro/noturno e configurações das versões 1.2 a 1.5.
 
-O `localStorage` pertence ao navegador e à origem do site. Limpar os dados do site apaga as configurações. Navegadores diferentes não sincronizam automaticamente; use **Automação → Exportar JSON** para transportar os dados.
+### Proteções de dados
 
-## Estúdio Visual, playlists e modo display
+- limite preventivo de aproximadamente 1,5 MB por chave gerenciada;
+- limite de 4,5 MB por backup;
+- allowlist de chaves aceitas na importação;
+- dados inválidos são removidos da chave ativa e, quando possível, colocados temporariamente em quarentena na sessão;
+- falhas de quota e serialização são registradas localmente;
+- **Restaurar configurações** preserva agenda, Pomodoro, notícias salvas e favoritos musicais;
+- a limpeza de cache não apaga layouts ou dados pessoais.
 
-O Estúdio permite:
+O `localStorage` pertence ao navegador e à origem. Limpar os dados do site remove as informações. Navegadores diferentes não sincronizam automaticamente; use backup JSON, exportação do layout ou compartilhamento por link.
 
-- criar, renomear, duplicar e excluir layouts;
-- arrastar widgets para mudar a ordem;
-- ativar, ocultar e redimensionar cada bloco;
-- ajustar colunas, espaçamento, fundo, opacidade, escala de fonte, cabeçalho e borda;
-- visualizar em desktop, tablet, celular e e-paper;
-- importar ou exportar toda a configuração em JSON;
-- copiar um link completo ou gerar QR code.
+## Estúdio, playlists e modo display
 
-A área **Playlists** associa layouts a dias e janelas de horário. O modo `/display` resolve a programação localmente e oferece:
+O Estúdio permite criar, renomear, duplicar e excluir layouts; reorganizar widgets; alterar colunas e espaçamento; configurar cabeçalho, borda, opacidade e fonte; e visualizar desktop, tablet, celular e e-paper.
 
-- anterior, próximo e pausa;
-- transição suave, deslizante ou sem animação;
-- tela cheia por ação do usuário;
-- cursor oculto após inatividade;
-- Screen Wake Lock quando o navegador oferecer suporte;
-- indicador online/offline e uso do último cache;
-- retorno automático à programação depois da pausa por interação.
+As playlists associam layouts a dias e janelas de horário, com duração, ordem, aleatoriedade, transição e pausa após interação. O modo `/display` resolve tudo localmente e oferece tela cheia, anterior/próximo, pausa, cursor oculto e Wake Lock quando disponível.
 
-Atalhos principais:
+Atalhos:
 
 | Atalho | Ação |
 | --- | --- |
 | `Ctrl/Cmd + K` ou `/` | abrir busca global |
 | `D` | abrir modo display |
 | `R` | atualizar clima e dados públicos |
-| `1` a `8` | abrir áreas principais |
+| `1` a `9` | abrir as primeiras áreas do menu |
+
+## Compartilhar sem banco
+
+O Estúdio pode gerar:
+
+```text
+/display#config=...
+```
+
+O fragmento após `#` é interpretado no navegador e não é enviado ao servidor. Ele contém a configuração visual, mas não inclui agenda pessoal, favoritos ou caches. Para configurações grandes, use o arquivo JSON em vez do QR code.
+
+Sincronização contínua, revogação remota, notificações push e atualização simultânea entre dispositivos exigiriam estado compartilhado e não fazem parte desta arquitetura.
+
+## Qualidade, recuperação e testes
+
+- barreira global de erros com registro local;
+- validação e migração de todos os dados gerenciados;
+- testes de recorrência, datas especiais, `.ics`, armazenamento, clima e automação;
+- medição local de DOM interativo, carregamento, transferência e heap quando disponível;
+- service worker validado separadamente;
+- nenhuma variável `.env`, chave secreta ou banco é necessária.
+
+## Arquitetura
+
+```mermaid
+flowchart TD
+    Browser["Next.js + React PWA"] --> Local[("localStorage")]
+    Browser --> SW["Service worker"]
+    SW --> StaticCache["App shell e páginas"]
+    SW --> APICache["Cache de /api/public"]
+    Browser --> Weather["Open-Meteo Forecast"]
+    Browser --> Summary["/api/public/summary"]
+    Browser --> Search["/api/public/search"]
+    Browser --> Music["/api/public/music"]
+    Browser --> Studio["Estúdio + playlists + /display"]
+    Summary --> PublicAPIs["APIs públicas allowlisted"]
+    Search --> SearchAPIs["Consultas allowlisted"]
+    Music --> MusicAPIs["iTunes Search + Radio Browser"]
+    Studio --> Local
+```
+
+| Parte | Arquivo | Responsabilidade |
+| --- | --- | --- |
+| Shell | `app/LumaBoardApp.tsx` | navegação, status, dados e módulos |
+| PWA | `app/pwa-manager.tsx` | instalação, conexão, atualização e backup de segurança |
+| Service worker | `public/sw.js` | caches offline e atualização controlada |
+| Manifesto | `app/manifest.ts` | metadados, ícones e atalhos de instalação |
+| Tela offline | `app/offline/page.tsx` | fallback personalizado |
+| Agenda | `app/local-widgets.ts` e `app/agenda-module.tsx` | recorrência, calendário, notificações e `.ics` |
+| Temas | `app/theme-system.ts` e `app/appearance-module.tsx` | temas globais/por layout e galeria |
+| Modelos | `app/dashboard-templates.ts` | dez layouts locais prontos |
+| Experiência | `app/experience-module.tsx` | central, instalação, backup, desempenho e changelog |
+| Armazenamento | `app/storage.ts` | validação, limites, migração e recuperação |
+| Erros | `app/error-boundary.tsx` | recuperação global da interface |
+| Estúdio | `app/studio-v2.tsx` | editor visual e compartilhamento |
+| Configuração | `app/dashboard-config.ts` | normalização, programação e links |
+| Renderizador | `app/dashboard-renderer.tsx` | widgets do Estúdio e display |
+| Display | `app/display/` | rota independente e playlists |
+| Functions | `app/api/public/` | agregação, pesquisa e música sem estado |
 
 ## Publicar no Netlify
 
@@ -249,69 +411,20 @@ Atalhos principais:
 | Variáveis de ambiente | nenhuma obrigatória |
 | Banco de dados | nenhum |
 
-O adaptador do Netlify para Next.js publica os Route Handlers como Functions. Não configure SQLite, arquivo JSON gravável, Netlify Database ou serviço externo para esta versão.
+O arquivo `netlify.toml` também envia `/sw.js` com `Cache-Control: no-cache`, define o escopo do service worker e aplica cache longo aos ícones versionados.
 
-O plano Free atual do Netlify é gratuito e possui limite mensal rígido. Se a cota acabar, o projeto pode ser pausado até o próximo ciclo. Use o cache de 15 minutos, mantenha as pesquisas sob demanda e acompanhe **Usage & billing** no painel do Netlify.
+Depois do deploy, valide:
 
-## Compartilhar um display sem banco
-
-Use **Gerar link do display**. O LumaBoard cria:
-
-```text
-/display#config=...
-```
-
-O fragmento após `#` é processado no navegador e não é enviado ao servidor. Ele contém layouts, widgets e programação do display; não contém a agenda pessoal, favoritos ou caches. O aparelho que abrir o link consulta seu próprio clima e as APIs públicas. Não coloque senhas, tokens ou informações sensíveis no nome de layouts ou widgets.
-
-O Estúdio também exporta e importa um arquivo JSON. O QR code é opcional: quando exibido, o link é enviado ao serviço QRServer somente para gerar a imagem do código.
-
-Sincronização contínua, revogação remota, telemetria real e envio de frames a um ESP32 exigiriam estado compartilhado e não fazem parte desta arquitetura gratuita.
-
-## Arquitetura
-
-```mermaid
-flowchart TD
-    Browser["Next.js + React"] --> Local[("localStorage")]
-    Browser --> Geo["Geolocation + BigDataCloud"]
-    Browser --> Weather["Open-Meteo Forecast"]
-    Browser --> Summary["/api/public/summary"]
-    Browser --> Search["/api/public/search"]
-    Browser --> Music["/api/public/music"]
-    Browser --> Studio["Estúdio + playlists + /display"]
-    Summary --> PublicAPIs["APIs públicas allowlisted"]
-    Search --> SearchAPIs["Consultas públicas allowlisted"]
-    Music --> MusicAPIs["iTunes Search + Radio Browser"]
-    Summary --> CDN["Cache HTTP / CDN"]
-    Search --> CDN
-    Music --> CDN
-    Studio --> Local
-    Browser --> Display["Modo /display + link #config + JSON + QR"]
-```
-
-| Parte | Arquivo | Responsabilidade |
-| --- | --- | --- |
-| Shell | `app/LumaBoardApp.tsx` | navegação, prévia e cartões públicos |
-| Dados locais | `app/local-widgets.ts` | agenda e temporizador persistentes |
-| Clima | `app/weather.ts` | localização, previsão, local manual e cache |
-| Resumo público | `app/public-data.ts` | cliente, validação, atualização e fallback local |
-| Pesquisas | `app/public-explorer.tsx` | consultas sob demanda e aplicação de local |
-| Function de resumo | `app/api/public/summary/route.ts` | agregação paralela sem estado |
-| Function de pesquisa | `app/api/public/search/route.ts` | pesquisa allowlisted sem estado |
-| Módulos | `app/modules.tsx` | displays, Biblioteca, automação e módulos legados |
-| Estúdio e playlists | `app/studio-v2.tsx` | editor visual, layouts, programação, importação e compartilhamento |
-| Configuração visual | `app/dashboard-config.ts` | tipos, validação, persistência, programação e link compartilhável |
-| Renderizador | `app/dashboard-renderer.tsx` | widgets reais reutilizados no Estúdio e no display |
-| Display | `app/display/` | rota independente, fullscreen, Wake Lock, offline e transições |
-| Música | `app/music-module.tsx` e `app/api/public/music/route.ts` | gêneros, prévias, rádios e favoritos |
-| Diagnóstico | `app/diagnostics-module.tsx` | status, provedores, tamanho local e limpeza seletiva |
-| Backup | `app/storage.ts` | chaves gerenciadas, migração, exportação e importação |
-| Visual | `app/globals.css` | temas e responsividade |
+1. abra o site online uma vez;
+2. instale o aplicativo;
+3. visite `/display` e `/offline` pelo menos uma vez;
+4. coloque o navegador offline e recarregue;
+5. confirme que agenda, Pomodoro, layouts e cache continuam disponíveis;
+6. publique uma alteração no `VERSION` do service worker e teste o botão **Atualizar agora**.
 
 ## Privacidade
 
-Nenhuma conta, senha ou chave de API é solicitada. Coordenadas, cidade, gêneros e termos pesquisados são enviados somente aos serviços necessários para responder à ação do usuário. O código da Function não grava essas requisições. Provedores externos e a plataforma de hospedagem podem manter logs conforme suas próprias políticas.
-
-Para apagar os dados locais, limpe os dados do site no navegador. Para transportar as configurações, exporte o backup JSON.
+Nenhuma conta, senha ou chave de API é solicitada. Coordenadas, cidade, gênero e termos pesquisados são enviados somente aos provedores necessários para responder à ação. As Functions não guardam sessão ou histórico. A hospedagem e os provedores podem manter seus próprios logs conforme suas políticas.
 
 ## Licença e atribuições
 

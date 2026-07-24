@@ -57,6 +57,11 @@ import {
   Bookmark,
   BookmarkCheck,
   EyeOff,
+  Palette,
+  Smartphone,
+  CloudDownload,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -104,17 +109,23 @@ import { MusicModule } from "./music-module";
 import { DiagnosticsModule } from "./diagnostics-module";
 import { DashboardRenderer, type DashboardRenderData } from "./dashboard-renderer";
 import { createShareUrl, readDashboardState, readMusicCache, resolveScheduledLayout, type DashboardState } from "./dashboard-config";
-
-type Theme = "paper" | "night";
+import { AgendaModule } from "./agenda-module";
+import { AppearanceModule } from "./appearance-module";
+import { ExperienceModule } from "./experience-module";
+import { usePWA } from "./pwa-manager";
+import { useThemeSystem } from "./theme-system";
 
 const navItems: Array<{ id: View; label: string; icon: typeof Grid2X2 }> = [
   { id: "overview", label: "Visão geral", icon: Grid2X2 },
+  { id: "agenda", label: "Agenda", icon: CalendarDays },
   { id: "studio", label: "Estúdio", icon: WandSparkles },
   { id: "playlists", label: "Playlists", icon: ListMusic },
   { id: "devices", label: "Dispositivos", icon: Monitor },
   { id: "library", label: "Biblioteca", icon: Library },
   { id: "automation", label: "Automação", icon: Zap },
   { id: "music", label: "Música", icon: Radio },
+  { id: "appearance", label: "Aparência", icon: Palette },
+  { id: "experience", label: "Experiência", icon: Smartphone },
   { id: "diagnostics", label: "Diagnóstico", icon: Wrench },
 ];
 
@@ -949,7 +960,9 @@ function PublicDataPanel({
 }
 
 export function LumaBoardApp() {
-  const [theme, setTheme] = useState<Theme>("paper");
+  const pwa = usePWA();
+  const { state: themeState, profile: themeProfile, persist: persistTheme } = useThemeSystem();
+  const theme = themeProfile.mode === "night" || themeProfile.mode === "oled" ? "night" : "paper";
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [activeView, setActiveView] = useState<View>("overview");
@@ -1013,8 +1026,6 @@ export function LumaBoardApp() {
   }, []);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("lumaboard-theme");
-    if (saved === "night") queueMicrotask(() => setTheme("night"));
     queueMicrotask(() => {
       setAutomationState(readAutomationState());
       setDashboardState(readDashboardState());
@@ -1028,6 +1039,8 @@ export function LumaBoardApp() {
       if (decoded) queueMicrotask(() => setSharedConfig(decoded));
     }
     if (params.get("display") === "1") queueMicrotask(() => setDisplayMode(true));
+    const requestedView = params.get("view") ?? window.localStorage.getItem("lumaboard-last-view-v1");
+    if (requestedView && navItems.some((item) => item.id === requestedView)) queueMicrotask(() => setActiveView(requestedView as View));
   }, []);
 
   useEffect(() => {
@@ -1077,6 +1090,14 @@ export function LumaBoardApp() {
   }, []);
 
   useEffect(() => {
+    window.localStorage.setItem("lumaboard-last-view-v1", activeView);
+    const url = new URL(window.location.href);
+    if (activeView === "overview") url.searchParams.delete("view");
+    else url.searchParams.set("view", activeView);
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [activeView]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 2800);
     return () => window.clearTimeout(timer);
@@ -1097,6 +1118,12 @@ export function LumaBoardApp() {
       }, 420);
     });
   }, [refreshPublicData, refreshWeather, refreshing]);
+
+  useEffect(() => {
+    const reconnect = () => refreshDevice();
+    window.addEventListener("lumaboard:reconnect", reconnect);
+    return () => window.removeEventListener("lumaboard:reconnect", reconnect);
+  }, [refreshDevice]);
 
   const copyDisplayLink = async () => {
     const state = dashboardState ?? readDashboardState();
@@ -1171,7 +1198,7 @@ export function LumaBoardApp() {
         window.open("/display", "_blank", "noopener,noreferrer");
       } else if (event.key.toLocaleLowerCase() === "r") {
         refreshDevice();
-      } else if (/^[1-8]$/.test(event.key)) {
+      } else if (/^[1-9]$/.test(event.key)) {
         const item = navItems[Number(event.key) - 1];
         if (item) setActiveView(item.id);
       }
@@ -1182,8 +1209,7 @@ export function LumaBoardApp() {
 
   const toggleTheme = () => {
     const next = theme === "paper" ? "night" : "paper";
-    setTheme(next);
-    window.localStorage.setItem("lumaboard-theme", next);
+    persistTheme({ ...themeState, activeThemeId: next });
   };
 
   if (displayMode) {
@@ -1238,8 +1264,9 @@ export function LumaBoardApp() {
             <Logo />
           </div>
           <div className="crumb">
-            <span className="status-dot" />
+            <span className={`status-dot ${pwa.online ? "" : "offline"}`} />
             LumaBoard / {navItems.find((item) => item.id === activeView)?.label}
+            <small className="data-freshness">{pwa.online ? <Wifi /> : <WifiOff />} {pwa.statusText}</small>
           </div>
           <div className="topbar-actions">
             <button className="global-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Abrir busca global">
@@ -1253,11 +1280,11 @@ export function LumaBoardApp() {
               {theme === "paper" ? <Moon /> : <Sun />}
               <span>{theme === "paper" ? "Modo noturno" : "Modo papel"}</span>
             </button>
-            <button className="icon-button" aria-label="Notificações">
+            <button className="icon-button" aria-label="Notificações" onClick={() => setActiveView("experience")}>
               <Bell />
-              <i className="notification-dot" />
+              {(localWidgets.overdueTasks.length > 0 || pwa.updateAvailable || publicDataStatus === "error") && <i className="notification-dot" />}
             </button>
-            <button className="icon-button" aria-label="Configurações" onClick={() => setActiveView("automation")}>
+            <button className="icon-button" aria-label="Configurações" onClick={() => setActiveView("appearance")}>
               <Settings />
             </button>
             <div className="avatar" aria-label="Perfil de Raphael">
@@ -1266,6 +1293,7 @@ export function LumaBoardApp() {
           </div>
         </header>
 
+        {pwa.updateAvailable && <div className="global-update-banner"><CloudDownload /><span><strong>Atualização disponível</strong> Uma cópia local será criada antes de recarregar.</span><button onClick={pwa.applyUpdate}>Atualizar agora</button></div>}
         <main id="conteudo" className={`dashboard ${activeView !== "overview" ? "module-dashboard" : ""}`}>
           <div hidden={activeView !== "overview"}>
           <section className="page-heading">
@@ -1419,6 +1447,7 @@ export function LumaBoardApp() {
           </section>
           </div>
 
+          {activeView === "agenda" && <AgendaModule onToast={setToast} />}
           {activeView === "studio" && <StudioModule renderData={dashboardRenderData} onToast={setToast} />}
           {activeView === "playlists" && <PlaylistsModule onToast={setToast} city={weather.city} />}
           {activeView === "devices" && (
@@ -1441,6 +1470,8 @@ export function LumaBoardApp() {
             />
           )}
           {activeView === "music" && <MusicModule onToast={setToast} />}
+          {activeView === "appearance" && <AppearanceModule onToast={setToast} />}
+          {activeView === "experience" && <ExperienceModule summary={publicSummary} publicStatus={publicDataStatus} weatherStatus={weatherStatus} onToast={setToast} />}
           {activeView === "diagnostics" && (
             <DiagnosticsModule
               weatherStatus={weatherStatus}

@@ -1,12 +1,15 @@
 {
-  "name": "LumaBoard",
+  "name": "LumaBoard — Painéis ambientes",
   "short_name": "LumaBoard",
-  "description": "Central local-first para painéis ambientes e e-paper.",
+  "description": "Central local-first para painéis, agenda, tarefas, notícias, música e e-paper.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f2efe7",
   "theme_color": "#35513a",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

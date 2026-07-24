@@ -70,12 +70,15 @@ import {
 
 export type View =
   | "overview"
+  | "agenda"
   | "studio"
   | "playlists"
   | "devices"
   | "library"
   | "automation"
   | "music"
+  | "appearance"
+  | "experience"
   | "diagnostics";
 
 type ToastHandler = (message: string) => void;
