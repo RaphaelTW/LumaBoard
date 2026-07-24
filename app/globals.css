@@ -1103,3 +1103,733 @@ body { background: var(--theme-background); background-attachment: fixed; font-f
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* v1.6.1 — Responsive UI hardening for phones, tablets and desktops */
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+.app-shell,
+.content-shell,
+.dashboard,
+.module-view,
+.module-dashboard,
+.panel,
+.page-heading > *,
+.module-heading > *,
+.topbar > *,
+.visual-studio-layout > *,
+.visual-studio-grid > *,
+.playlist-v2-layout > *,
+.music-layout > *,
+.agenda-advanced-layout > *,
+.appearance-grid > *,
+.automation-layout > *,
+.overview-grid > * {
+  min-width: 0;
+}
+
+.mobile-brand {
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-connection-dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.mobile-connection-dot.offline {
+  background: var(--warning);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+@media (max-width: 1180px) {
+  .global-update-banner {
+    margin-left: 82px;
+  }
+}
+
+@media (max-width: 900px) {
+  .content-shell {
+    width: 100%;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 35;
+    min-height: 64px;
+    height: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left));
+    padding-top: max(8px, env(safe-area-inset-top));
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-brand {
+    display: flex;
+    overflow: hidden;
+  }
+
+  .mobile-brand .brand {
+    min-width: 0;
+    max-width: 100%;
+    gap: 8px;
+    font-size: 18px;
+  }
+
+  .mobile-brand .brand > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-brand .brand-mark {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    transform: scale(.78);
+    transform-origin: center;
+  }
+
+  .mobile-connection-dot {
+    display: block;
+  }
+
+  .topbar-actions {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .topbar-actions .avatar {
+    display: none;
+  }
+
+  .topbar-actions .theme-toggle {
+    width: 40px;
+    min-width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .topbar-actions .theme-toggle span {
+    display: none;
+  }
+
+  .global-update-banner {
+    margin-left: 0;
+    padding-inline: max(14px, env(safe-area-inset-left)) max(14px, env(safe-area-inset-right));
+  }
+
+  .dashboard {
+    width: 100%;
+    padding: 26px max(16px, env(safe-area-inset-right)) calc(94px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+
+  .mobile-nav {
+    display: flex;
+    grid-template-columns: none;
+    gap: 2px;
+    min-height: 72px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding: 6px max(8px, env(safe-area-inset-right)) max(7px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    box-shadow: 0 -8px 24px color-mix(in srgb, var(--text) 8%, transparent);
+  }
+
+  .mobile-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-nav button {
+    flex: 1 0 68px;
+    min-width: 68px;
+    min-height: 54px;
+    padding: 4px 3px;
+    border-radius: 7px;
+    scroll-snap-align: center;
+    touch-action: manipulation;
+  }
+
+  .mobile-nav button.active {
+    background: var(--accent-soft);
+  }
+
+  .mobile-nav button span {
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .overview-grid,
+  .studio-grid,
+  .playlist-layout,
+  .devices-layout,
+  .automation-layout,
+  .visual-studio-layout,
+  .visual-studio-grid,
+  .playlist-v2-layout,
+  .music-layout,
+  .agenda-advanced-layout,
+  .appearance-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .plugin-drawer,
+  .visual-library-panel,
+  .visual-inspector-panel,
+  .visual-layout-list,
+  .visual-inspector,
+  .playlist-settings-v2,
+  .agenda-editor-panel {
+    width: 100%;
+    max-width: none;
+    position: static;
+  }
+
+  .agenda-calendar-column {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .modal {
+    width: 100%;
+    max-height: min(90dvh, 900px);
+    border-radius: 14px 14px 10px 10px;
+  }
+}
+
+@media (max-width: 700px) {
+  .page-heading,
+  .module-heading {
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+
+  .page-heading h1,
+  .module-heading h1 {
+    max-width: 100%;
+    font-size: clamp(31px, 10vw, 40px);
+    line-height: 1.03;
+    overflow-wrap: anywhere;
+  }
+
+  .page-heading p,
+  .module-heading p {
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .heading-actions,
+  .module-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .button {
+    min-height: 44px;
+    height: auto;
+    padding: 10px 14px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .panel,
+  .preview-panel,
+  .playlist-panel,
+  .music-tracks-panel,
+  .radio-panel,
+  .provider-diagnostics-panel,
+  .theme-editor-panel,
+  .install-guides,
+  .changelog-entry,
+  .agenda-editor-panel {
+    max-width: 100%;
+  }
+
+  .rain-alert-panel > header,
+  .list-header,
+  .playlist-v2-header,
+  .music-tracks-panel > header,
+  .radio-panel > header,
+  .provider-diagnostics-panel > header,
+  .visual-canvas-toolbar,
+  .theme-editor-panel > header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .rain-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .rain-actions .button {
+    width: 100%;
+  }
+
+  .rain-actions > span {
+    grid-column: 1 / -1;
+  }
+
+  .rules-list > article {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: 80px;
+    padding-block: 10px;
+  }
+
+  .privacy-panel {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .privacy-panel > .status-chip {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .backup-panel > div,
+  .theme-editor-actions,
+  .occurrence-actions,
+  .section-heading-actions,
+  .local-heading-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .section-heading-actions,
+  .local-heading-actions,
+  .theme-editor-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-data-grid,
+  .plugins-grid,
+  .library-grid,
+  .diagnostics-summary-grid,
+  .provider-diagnostics-list,
+  .experience-tools-grid,
+  .template-gallery-grid,
+  .install-guides > div,
+  .theme-form-grid,
+  .explorer-results {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .news-carousel-card {
+    grid-column: span 1;
+  }
+
+  .news-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .news-carousel-slide {
+    grid-template-columns: minmax(88px, 34%) minmax(0, 1fr);
+  }
+
+  .news-carousel-slide > img {
+    min-height: 122px;
+    height: 100%;
+  }
+
+  .global-search-backdrop {
+    padding: 8px;
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  .global-search-dialog {
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top));
+    border-radius: 10px;
+  }
+
+  .global-search-results {
+    max-height: calc(100dvh - 88px - env(safe-area-inset-top));
+  }
+
+  .global-search-results button,
+  .global-search-results a {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .global-search-results small {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .visual-library-panel,
+  .visual-inspector-panel,
+  .visual-inspector {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .visual-library-panel > *,
+  .visual-inspector-panel > *,
+  .visual-inspector > * {
+    grid-column: 1 !important;
+  }
+
+  .visual-canvas-panel,
+  .visual-library-panel,
+  .visual-inspector-panel {
+    padding: 12px;
+  }
+
+  .visual-live-preview,
+  .modal-dashboard-preview {
+    min-height: 360px;
+  }
+
+  .visual-editor-grid,
+  .dashboard-renderer {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .dashboard-widget {
+    grid-column: 1 / -1 !important;
+  }
+
+  .playlist-rules-v2 > article {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .playlist-day-picker,
+  .playlist-times-v2,
+  .playlist-rules-v2 > article > .switch {
+    grid-column: 2 / -1;
+  }
+
+  .playlist-times-v2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .genre-picker-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .genre-picker-panel .button,
+  .genre-picker-panel select {
+    width: 100%;
+  }
+
+  .music-track-grid > article {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .music-card-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .radio-list > article {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+  }
+
+  .agenda-toolbar,
+  .agenda-filter-bar {
+    width: 760px;
+    max-width: none;
+  }
+
+  .agenda-period strong {
+    min-width: 150px;
+  }
+
+  .appearance-grid,
+  .theme-list-panel,
+  .theme-editor-panel {
+    width: 100%;
+  }
+
+  .changelog-entry header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .changelog-entry header i {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .changelog-entry ul {
+    margin-left: 18px;
+    padding-left: 14px;
+  }
+
+  .display-exit {
+    max-width: calc(100vw - 20px);
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard {
+    padding-top: 22px;
+    padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
+  }
+
+  .topbar-actions .theme-toggle {
+    display: none;
+  }
+
+  .topbar-actions .global-search-trigger,
+  .topbar-actions .icon-button {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+
+  .mobile-brand .brand {
+    font-size: 17px;
+  }
+
+  .page-heading h1,
+  .module-heading h1 {
+    font-size: clamp(30px, 10.5vw, 36px);
+  }
+
+  .rain-alert-panel,
+  .privacy-panel,
+  .backup-panel,
+  .endpoint-panel,
+  .rules-panel,
+  .experience-tool-card,
+  .notification-center-item,
+  .theme-editor-panel,
+  .theme-list-panel,
+  .template-card,
+  .install-guides,
+  .agenda-editor-panel {
+    padding: 14px;
+  }
+
+  .rain-grid {
+    gap: 6px;
+  }
+
+  .rain-grid > div {
+    min-width: 0;
+    padding: 10px 7px;
+  }
+
+  .rain-grid strong {
+    font-size: clamp(18px, 6vw, 23px);
+  }
+
+  .rain-grid span {
+    font-size: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .rain-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rain-actions > span {
+    grid-column: 1;
+  }
+
+  .recurring-event-form,
+  .event-form,
+  .inline-form,
+  .two-columns,
+  .two-field-row,
+  .visual-layout-actions,
+  .widget-add-grid,
+  .news-toolbar {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .recurring-event-form > *,
+  .event-form > *,
+  .inline-form > * {
+    grid-column: 1 !important;
+  }
+
+  .news-carousel-slide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .news-carousel-slide > img {
+    width: 100%;
+    height: 170px;
+    min-height: 0;
+  }
+
+  .news-carousel-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .news-carousel-controls {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .event-list > div {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .event-list > div > time,
+  .event-actions {
+    grid-column: 1 / -1;
+  }
+
+  .event-actions {
+    justify-content: flex-start;
+  }
+
+  .music-track-grid > article,
+  .radio-list > article {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .music-track-grid img,
+  .music-placeholder,
+  .radio-list img,
+  .radio-list > article > span {
+    width: 46px;
+    height: 46px;
+  }
+
+  .music-card-actions,
+  .radio-list > article > button,
+  .radio-list > article > .icon-button {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+
+  .radio-list > article > button,
+  .radio-list > article > .icon-button {
+    width: 100%;
+  }
+
+  .experience-tool-card,
+  .notification-center-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .experience-tool-card > button,
+  .experience-tool-card > div:last-child,
+  .notification-center-item > button,
+  .notification-center-item > .button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .weekday-fieldset {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .weekday-fieldset label {
+    flex: 0 0 48px;
+  }
+
+  .theme-editor-actions,
+  .occurrence-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .offline-card,
+  .fatal-error-card {
+    padding: 24px 16px;
+  }
+
+  .display-controls-v2 {
+    max-width: calc(100vw - 20px);
+    overflow-x: auto;
+    opacity: .92;
+  }
+}
+
+@media (max-width: 340px) {
+  .topbar {
+    padding-inline: 9px;
+  }
+
+  .topbar-actions {
+    gap: 4px;
+  }
+
+  .topbar-actions .icon-button[aria-label="Configurações"] {
+    display: none;
+  }
+
+  .mobile-brand .brand-mark {
+    display: none;
+  }
+
+  .mobile-brand .brand {
+    font-size: 16px;
+  }
+
+  .rain-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mobile-nav button {
+    flex-basis: 62px;
+    min-width: 62px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .topbar {
+    padding-inline: 24px;
+  }
+
+  .dashboard {
+    padding-inline: 24px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .dashboard,
+  .module-dashboard {
+    max-width: 1760px;
+    padding-inline: 48px;
+  }
+
+  .topbar {
+    padding-inline: 48px;
+  }
+}

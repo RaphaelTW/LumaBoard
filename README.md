@@ -9,12 +9,18 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.6 — PWA & Offline Experience** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.6.1 — Responsive Experience** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
 
-## Destaques da versão 1.6.0
+## Destaques da versão 1.6.1
 
+- interface revisada para celulares Android, iPhone, tablets, notebooks e desktops ultrawide;
+- cabeçalho móvel compacto, sem ações cortadas em telas estreitas;
+- navegação inferior rolável com acesso a todos os módulos;
+- cards, formulários, carrosséis, modais e áreas de toque adaptados por breakpoint;
+- agenda mensal e semanal contida em rolagem própria, sem causar overflow na página;
+- suporte a safe areas em aparelhos com notch, barra gestual e PWA instalada;
 - PWA instalável com service worker próprio e atualização controlada pelo usuário;
 - app shell, páginas principais, ícones e arquivos estáticos disponíveis offline;
 - tela offline personalizada e fallback para os últimos dados públicos salvos;
@@ -27,6 +33,22 @@ Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelo
 - galeria com dez modelos locais;
 - validação de backup, limites de tamanho, recuperação de dados corrompidos e migração automática;
 - tratamento global de erros e monitor básico de desempenho.
+
+
+## Experiência responsiva
+
+A versão 1.6.1 adiciona uma camada de responsividade comum a todas as áreas do produto:
+
+- **celulares compactos:** cabeçalho reduzido, ações essenciais visíveis e grades em uma coluna;
+- **Android e iPhone:** navegação inferior horizontal, áreas seguras e botões adequados para toque;
+- **tablets:** painéis em uma ou duas colunas conforme a orientação;
+- **notebooks e desktops:** aproveitamento progressivo da largura sem esticar excessivamente o conteúdo;
+- **telas ultrawide:** limite ampliado e espaçamento lateral proporcional;
+- **agenda:** calendário mensal/semanal rola dentro do próprio painel em vez de ampliar a página;
+- **Estúdio e Display:** widgets são reduzidos para uma coluna em visualizações estreitas;
+- **modais e busca:** usam `dvh`, safe areas e rolagem interna para não ficarem escondidos pelo teclado ou pelas barras do sistema.
+
+A navegação móvel mostra todos os módulos em uma faixa rolável. O item selecionado recebe destaque e é compatível com rolagem por toque.
 
 ## Princípio de custo e privacidade
 

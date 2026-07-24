@@ -6,6 +6,7 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { version: "1.6.1", date: "2026-07-23", title: "Responsive Experience", highlights: ["Cabeçalho compacto e sem cortes em celulares estreitos", "Navegação móvel completa e rolável para todos os módulos", "Grades, formulários, carrosséis, agenda, música e modais adaptados por breakpoint", "Áreas de toque, safe areas e rolagem interna aprimoradas", "Compatibilidade revisada para Android, iPhone, tablets e desktops ultrawide"] },
   { version: "1.6.0", date: "2026-07-23", title: "PWA & Offline Experience", highlights: ["Service worker, telas principais e dados recentes disponíveis offline", "Atualização controlada com backup e recuperação de segurança", "Central de notificações local", "Agenda mensal/semanal, subtarefas, recorrência avançada e .ics", "Editor de temas e dez modelos prontos", "Validação de backups, recuperação de dados e monitor de desempenho"] },
   { version: "1.5.0", date: "2026-07-23", title: "Visual Dashboard Studio", highlights: ["Editor visual e layouts múltiplos", "Playlists por horário e modo display", "Compartilhamento por link, QR e JSON", "Descoberta musical e rádios sem autenticação"] },
   { version: "1.4.0", date: "2026-07-23", title: "Agenda recorrente e anime", highlights: ["Recorrência diária, semanal, mensal e anual", "Carrosséis de tecnologia e anime", "Pesquisa de animes pelo Jikan"] },

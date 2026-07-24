@@ -1212,6 +1212,15 @@ export function LumaBoardApp() {
     persistTheme({ ...themeState, activeThemeId: next });
   };
 
+  useEffect(() => {
+    if (typeof window === "undefined" || window.innerWidth > 900) return;
+    const activeButton = document.querySelector<HTMLButtonElement>(
+      '.mobile-nav button[aria-current="page"]',
+    );
+    activeButton?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeView]);
+
+
   if (displayMode) {
     return (
       <div className="app-shell display-mode display-mode-v2" data-theme={theme}>
@@ -1262,6 +1271,12 @@ export function LumaBoardApp() {
         <header className="topbar">
           <div className="mobile-brand">
             <Logo />
+            <span
+              className={`mobile-connection-dot ${pwa.online ? "" : "offline"}`}
+              title={pwa.statusText}
+              role="status"
+              aria-label={pwa.statusText}
+            />
           </div>
           <div className="crumb">
             <span className={`status-dot ${pwa.online ? "" : "offline"}`} />
@@ -1537,8 +1552,13 @@ export function LumaBoardApp() {
       </div>
 
       <nav className="mobile-nav" aria-label="Navegação móvel">
-        {navItems.slice(0, 5).map(({ id, label, icon: Icon }) => (
-          <button key={id} className={activeView === id ? "active" : ""} onClick={() => setActiveView(id)}>
+        {navItems.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            className={activeView === id ? "active" : ""}
+            aria-current={activeView === id ? "page" : undefined}
+            onClick={() => setActiveView(id)}
+          >
             <Icon /><span>{label}</span>
           </button>
         ))}
