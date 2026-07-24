@@ -2,6 +2,22 @@
 
 Todas as mudanças relevantes do LumaBoard são registradas neste arquivo. O projeto usa versionamento semântico.
 
+## [1.7.1] - 2026-07-24
+
+### Corrigido
+
+- A área de conteúdo no desktop agora desconta a largura real da sidebar fixa, eliminando o corte à direita.
+- A sidebar passa ao modo compacto em notebooks, janelas menores e cenários com zoom do navegador.
+- A Visão geral reorganiza a pré-visualização e os cartões de status quando não há largura suficiente.
+- Cabeçalhos, ações e botões podem quebrar linha sem ultrapassar a viewport.
+- Containers principais, módulos e pré-visualizações respeitam `min-width: 0` e o limite visual da janela.
+- O comportamento móvel validado na v1.7.0 foi preservado sem mudanças na navbar inferior.
+- Cache PWA e versão instalada atualizados para 1.7.1.
+
+### Validação
+
+- Testes responsivos cobrem o cálculo da largura útil, a compactação da sidebar e a reorganização em notebooks.
+
 ## [1.7.0] - 2026-07-24
 
 ### Adicionado

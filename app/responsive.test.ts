@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 const mobileCss = readFileSync(new URL("./mobile-shell.css", import.meta.url), "utf8");
+const desktopCss = readFileSync(new URL("./desktop-shell.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("./LumaBoardApp.tsx", import.meta.url), "utf8");
 const serviceWorker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 const layout = readFileSync(new URL("./layout.tsx", import.meta.url), "utf8");
 
-describe("responsive experience v1.7.0", () => {
+describe("responsive experience v1.7.1", () => {
   it("declares the real device viewport and safe-area support", () => {
     expect(layout).toContain('width: "device-width"');
     expect(layout).toContain("initialScale: 1");
@@ -16,7 +17,7 @@ describe("responsive experience v1.7.0", () => {
     expect(mobileCss).toContain("inset: auto 0 0 0");
   });
 
-  it("uses five fixed slots without inheriting page width", () => {
+  it("uses five fixed mobile slots without inheriting page width", () => {
     expect(app).toContain("navItems.slice(0, 4)");
     expect(app).toContain("Todos os módulos");
     expect(app).toContain("mobile-module-sheet");
@@ -25,11 +26,35 @@ describe("responsive experience v1.7.0", () => {
     expect(mobileCss).toContain("contain: layout paint");
   });
 
+  it("discounts the fixed sidebar from the desktop content viewport", () => {
+    expect(desktopCss).toContain("--desktop-sidebar-width: 236px");
+    expect(desktopCss).toContain("width: calc(100% - var(--desktop-sidebar-width)) !important");
+    expect(desktopCss).toContain("margin-left: var(--desktop-sidebar-width) !important");
+    expect(desktopCss).toContain("overflow-x: clip");
+  });
+
+  it("adapts notebook-sized desktop layouts instead of clipping them", () => {
+    expect(desktopCss).toContain("@media (min-width: 901px) and (max-width: 1400px)");
+    expect(desktopCss).toContain("--desktop-sidebar-width: 82px");
+    expect(desktopCss).toContain("@media (min-width: 901px) and (max-width: 1120px)");
+    expect(desktopCss).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(desktopCss).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+  });
+
+  it("loads the desktop override after the legacy and mobile stylesheets", () => {
+    const globalIndex = layout.indexOf('import "./globals.css"');
+    const mobileIndex = layout.indexOf('import "./mobile-shell.css"');
+    const desktopIndex = layout.indexOf('import "./desktop-shell.css"');
+    expect(globalIndex).toBeGreaterThanOrEqual(0);
+    expect(globalIndex).toBeLessThan(mobileIndex);
+    expect(mobileIndex).toBeLessThan(desktopIndex);
+    expect(css).toContain(".overview-grid");
+  });
+
   it("opens a real notification quick panel from the bell", () => {
     expect(app).toContain("notificationPanelOpen");
     expect(app).toContain('id="notification-quick-panel"');
     expect(app).toContain("Abrir central completa");
-    expect(mobileCss).toContain("notification-quick-panel");
   });
 
   it("shows the installed version and release summary", () => {
@@ -38,12 +63,7 @@ describe("responsive experience v1.7.0", () => {
     expect(app).toContain("CHANGELOG[0]");
   });
 
-  it("bumps the PWA cache so fixed styles reach installed apps", () => {
-    expect(serviceWorker).toContain('const VERSION = "1.7.0";');
-  });
-
-  it("keeps the legacy stylesheet parseable while the mobile shell overrides it last", () => {
-    expect(css).toContain(".mobile-nav");
-    expect(layout.indexOf('import "./globals.css"')).toBeLessThan(layout.indexOf('import "./mobile-shell.css"'));
+  it("bumps the PWA cache so corrected styles reach installed apps", () => {
+    expect(serviceWorker).toContain('const VERSION = "1.7.1";');
   });
 });

@@ -1,0 +1,187 @@
+/* LumaBoard 1.7.1 — adaptive desktop shell
+ * Keeps the application inside the visual viewport when a desktop or notebook
+ * window is narrower, without changing the proven mobile navigation.
+ */
+
+:root {
+  --desktop-sidebar-width: 236px;
+}
+
+@media (min-width: 901px) {
+  html,
+  body,
+  .app-shell {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .content-shell {
+    width: calc(100% - var(--desktop-sidebar-width)) !important;
+    max-width: calc(100% - var(--desktop-sidebar-width)) !important;
+    min-width: 0;
+    margin-left: var(--desktop-sidebar-width) !important;
+    overflow-x: clip;
+  }
+
+  .topbar,
+  .dashboard,
+  .module-dashboard,
+  .module-view {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .topbar {
+    overflow: hidden;
+  }
+
+  .dashboard,
+  .module-dashboard,
+  .module-view {
+    overflow-x: clip;
+  }
+
+  .page-heading,
+  .module-heading,
+  .heading-actions,
+  .module-actions,
+  .topbar-actions {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .heading-actions,
+  .module-actions,
+  .topbar-actions {
+    max-width: 100%;
+    justify-content: flex-end;
+  }
+
+  .overview-grid,
+  .overview-grid > *,
+  .status-column,
+  .preview-panel,
+  .preview-button,
+  .eink-screen {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .agenda-calendar-column,
+  .explorer-tabs,
+  .playlist-rules-v2,
+  .provider-diagnostics-list {
+    max-width: 100%;
+  }
+}
+
+/* Collapse the sidebar earlier because its width must be discounted from the
+   usable content viewport. This is especially important at browser zoom >100%. */
+@media (min-width: 901px) and (max-width: 1400px) {
+  :root {
+    --desktop-sidebar-width: 82px;
+  }
+
+  .sidebar {
+    width: 82px;
+    padding-inline: 14px;
+  }
+
+  .sidebar .brand > span:last-child,
+  .sidebar .nav-item span,
+  .sidebar-device div,
+  .sidebar-version {
+    display: none;
+  }
+
+  .sidebar .brand,
+  .nav-item {
+    justify-content: center;
+  }
+
+  .nav-item {
+    padding-inline: 0;
+  }
+
+  .sidebar .sidebar-device {
+    margin-top: auto;
+    display: flex;
+    justify-content: center;
+    padding: 12px 5px;
+  }
+
+  .global-update-banner {
+    margin-left: 82px;
+  }
+
+  .topbar {
+    padding-inline: clamp(20px, 2.3vw, 32px);
+  }
+
+  .dashboard,
+  .module-dashboard {
+    padding-inline: clamp(20px, 2.3vw, 32px);
+  }
+}
+
+/* At notebook-sized desktop widths the main preview stays fluid and the
+   status cards move below it instead of being clipped outside the viewport. */
+@media (min-width: 901px) and (max-width: 1120px) {
+  .overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .status-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .topbar {
+    height: auto;
+    min-height: 78px;
+    padding-block: 10px;
+  }
+
+  .page-heading,
+  .module-heading {
+    align-items: flex-start;
+  }
+
+  .heading-actions,
+  .module-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1020px) {
+  .status-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-heading h1,
+  .module-heading h1 {
+    font-size: clamp(34px, 5vw, 46px);
+  }
+
+  .button {
+    max-width: 100%;
+  }
+}
+
+/* Mobile remains controlled by mobile-shell.css. Reassert its full-width shell
+   because this file is loaded last. */
+@media (max-width: 900px) {
+  :root {
+    --desktop-sidebar-width: 0px;
+  }
+
+  .content-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+  }
+}

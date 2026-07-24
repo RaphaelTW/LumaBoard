@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mobile-shell.css";
+import "./desktop-shell.css";
 import { PWAProvider } from "./pwa-manager";
 import { ThemeController } from "./theme-controller";
 import { AppErrorBoundary } from "./error-boundary";

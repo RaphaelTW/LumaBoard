@@ -38,27 +38,27 @@ npm run check
 
 Não continue para o commit quando algum comando terminar com erro.
 
-## Commit da v1.7.0
+## Commit da v1.7.1
 
 Execute cada comando separadamente:
 
 ```powershell
 git status
 git add -A
-git commit -m "feat: release Calendar and Notifications v1.7.0" -m "Expand LumaBoard with month, week, day and list calendar views, occurrence and series editing, richer ICS interoperability, multiple reminders, local notification inbox, snooze controls, quiet hours, notification history, improved mobile calendar layouts, and storage migration v7."
+git commit -m "fix: release adaptive desktop hotfix v1.7.1" -m "Fix desktop viewport sizing by discounting the fixed sidebar, compact the sidebar earlier on notebooks and zoomed windows, reflow overview status cards, wrap page actions safely, preserve the validated mobile navigation, add responsive regression tests, and refresh the PWA cache."
 ```
 
 ## Tag anotada
 
 ```powershell
-git tag -a v1.7.0 -m "LumaBoard v1.7.0 - Calendar and Notifications"
+git tag -a v1.7.1 -m "LumaBoard v1.7.1 - Adaptive Desktop Hotfix"
 ```
 
 ## Push
 
 ```powershell
 git push origin main
-git push origin v1.7.0
+git push origin v1.7.1
 ```
 
 ## Confirmar no GitHub
@@ -66,11 +66,11 @@ git push origin v1.7.0
 ```powershell
 git log -3 --oneline --decorate
 git ls-remote --heads origin main
-git ls-remote --tags origin "refs/tags/v1.7.0*"
+git ls-remote --tags origin "refs/tags/v1.7.1*"
 git status
 ```
 
-Para uma tag anotada, o comando pode mostrar `refs/tags/v1.7.0` e `refs/tags/v1.7.0^{}`. Isso é normal.
+Para uma tag anotada, o comando pode mostrar `refs/tags/v1.7.1` e `refs/tags/v1.7.1^{}`. Isso é normal.
 
 ## Configuração esperada no Netlify
 
@@ -80,4 +80,4 @@ Para uma tag anotada, o comando pode mostrar `refs/tags/v1.7.0` e `refs/tags/v1.
 - **Production branch:** `main`.
 - **Node.js:** versão definida no `netlify.toml`.
 
-Depois do push, abra **Deploys** no Netlify e confirme que o commit da v1.7.0 aparece. Em uma PWA instalada, feche e abra o aplicativo novamente e use **Atualizar agora** quando o aviso surgir.
+Depois do push, abra **Deploys** no Netlify e confirme que o commit da v1.7.1 aparece. Em uma PWA instalada, feche e abra o aplicativo novamente e use **Atualizar agora** quando o aviso surgir.
