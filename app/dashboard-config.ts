@@ -345,7 +345,7 @@ export function normalizeDashboardState(value: unknown): DashboardState {
 }
 
 export function readDashboardState(): DashboardState {
-  const value = readStoredValue<unknown>(DASHBOARD_STORAGE_KEY, (_value): _value is unknown => true, createDefaultDashboardState());
+  const value = readStoredValue<unknown>(DASHBOARD_STORAGE_KEY, isRecord, createDefaultDashboardState());
   return normalizeDashboardState(value);
 }
 

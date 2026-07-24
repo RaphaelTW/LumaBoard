@@ -98,7 +98,7 @@ export function readThemeState(): ThemeState {
   const legacy = typeof window !== "undefined" ? window.localStorage.getItem("lumaboard-theme") : null;
   const fallback = createDefaultThemeState();
   if (legacy === "night") fallback.activeThemeId = "night";
-  return normalizeThemeState(readStoredValue<unknown>(THEME_STORAGE_KEY, (_value): _value is unknown => true, fallback));
+  return normalizeThemeState(readStoredValue<unknown>(THEME_STORAGE_KEY, isRecord, fallback));
 }
 
 export function writeThemeState(state: ThemeState): ThemeState {

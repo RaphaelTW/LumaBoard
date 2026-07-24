@@ -427,7 +427,6 @@ export function DevicesModule({
 }) {
   const [localDevices, setLocalDevices] = useState<LocalDevice[]>(devices);
   const [selectedId, setSelectedId] = useState("browser");
-  const [refreshMinutes, setRefreshMinutes] = useState(15);
   const selected = localDevices.find((device) => device.id === selectedId) ?? localDevices[0];
 
   useEffect(() => {
@@ -456,10 +455,6 @@ export function DevicesModule({
   const updateSelected = (patch: Partial<LocalDevice>) => {
     persistDevices(localDevices.map((device) => device.id === selected.id ? { ...device, ...patch } : device));
   };
-
-  useEffect(() => {
-    setRefreshMinutes(selected.interval);
-  }, [selected.id, selected.interval]);
 
   return (
     <section className="module-view">
@@ -497,12 +492,12 @@ export function DevicesModule({
 
         <aside className="energy-panel panel">
           <span className="eyebrow">ATUALIZAÇÃO</span><h3>Intervalo local</h3><p>Ajuste a frequência usada pelo perfil e reduza chamadas às APIs públicas.</p>
-          <div className="battery-projection"><strong>{refreshMinutes}</strong><span>minutos</span></div>
-          <label className="control-label" htmlFor="refresh-range">Atualizar a cada {refreshMinutes} min</label>
-          <input id="refresh-range" type="range" min="5" max="60" step="5" value={refreshMinutes} onChange={(event) => setRefreshMinutes(Number(event.target.value))} />
+          <div className="battery-projection"><strong>{selected.interval}</strong><span>minutos</span></div>
+          <label className="control-label" htmlFor="refresh-range">Atualizar a cada {selected.interval} min</label>
+          <input id="refresh-range" type="range" min="5" max="60" step="5" value={selected.interval} onChange={(event) => updateSelected({ interval: Number(event.target.value) })} />
           <div className="time-labels mono"><span>5 MIN</span><span>60 MIN</span></div>
           <div className="energy-tip"><Zap /><span>O cache local e o cache da CDN reduzem chamadas repetidas às APIs e à Function.</span></div>
-          <button className="button secondary full" onClick={() => { updateSelected({ interval: refreshMinutes }); writeStoredValue("lumaboard-refresh-minutes", refreshMinutes); window.dispatchEvent(new CustomEvent("lumaboard:refresh-interval", { detail: refreshMinutes })); onToast(`Atualização automática definida para ${refreshMinutes} minutos.`); }}><Save /> Aplicar configuração</button>
+          <button className="button secondary full" onClick={() => { writeStoredValue("lumaboard-refresh-minutes", selected.interval); window.dispatchEvent(new CustomEvent("lumaboard:refresh-interval", { detail: selected.interval })); onToast(`Atualização automática definida para ${selected.interval} minutos.`); }}><Save /> Aplicar configuração</button>
           <div className="inspector-divider" />
           <label className="control-label" htmlFor="device-name">Nome</label><input id="device-name" value={selected.name} onChange={(event) => updateSelected({ name: event.target.value })} />
           <label className="control-label" htmlFor="device-model">Modelo</label><input id="device-model" value={selected.model} onChange={(event) => updateSelected({ model: event.target.value })} />

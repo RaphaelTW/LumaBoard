@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Expand, Pause, Play, RefreshCw, Wifi, WifiOff, X } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   decodeDashboardState,
@@ -168,7 +169,7 @@ export function DisplayClient() {
         <button onClick={() => moveLayout(1)} aria-label="Próxima tela"><ChevronRight /></button>
         <button onClick={refreshAll} aria-label="Atualizar dados"><RefreshCw /></button>
         <button onClick={() => void toggleFullscreen()} aria-label="Tela cheia"><Expand /></button>
-        <a href="/" aria-label="Sair do display"><X /></a>
+        <Link href="/" aria-label="Sair do display"><X /></Link>
       </div>
       {state.settings.showStatus && <footer className="display-status-v2"><span>{online ? <Wifi /> : <WifiOff />} {online ? "online" : "offline · usando cache"}</span><strong>{layout.name}</strong><span>{weatherStatus} · {publicStatus} · {pausedUntil ? "programação pausada" : "programação automática"}</span></footer>}
     </main>

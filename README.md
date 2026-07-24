@@ -9,9 +9,18 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.6.3 — Deployment & Mobile Hotfix** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.6.4 — Quality Gate & Build Validation** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
+
+## Destaques da versão 1.6.4
+
+- correção dos erros de lint encontrados após a instalação limpa no Windows;
+- estado do editor de temas e dos perfis de display simplificado para evitar renderizações em cascata;
+- navegação interna do modo display feita pelo componente `Link` do Next.js;
+- validadores de armazenamento mais rigorosos e remoção de avisos de código não utilizado;
+- script de release PowerShell com falha imediata, saída UTF-8 e diagnóstico de arquivos bloqueados;
+- cache PWA renovado para distribuir a correção aos aparelhos instalados.
 
 ## Destaques da versão 1.6.3
 

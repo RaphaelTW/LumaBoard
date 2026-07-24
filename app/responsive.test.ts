@@ -7,7 +7,7 @@ const app = readFileSync(new URL("./LumaBoardApp.tsx", import.meta.url), "utf8")
 const serviceWorker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 const layout = readFileSync(new URL("./layout.tsx", import.meta.url), "utf8");
 
-describe("responsive experience v1.6.3", () => {
+describe("responsive experience v1.6.4", () => {
   it("declares the real device viewport and safe-area support", () => {
     expect(layout).toContain('width: "device-width"');
     expect(layout).toContain("initialScale: 1");
@@ -39,7 +39,7 @@ describe("responsive experience v1.6.3", () => {
   });
 
   it("bumps the PWA cache so fixed styles reach installed apps", () => {
-    expect(serviceWorker).toContain('const VERSION = "1.6.3";');
+    expect(serviceWorker).toContain('const VERSION = "1.6.4";');
   });
 
   it("keeps the legacy stylesheet parseable while the mobile shell overrides it last", () => {

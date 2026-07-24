@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Download, Image as ImageIcon, LayoutTemplate, Moon, Palette, Plus, Save, Sun, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useRef, type ChangeEvent } from "react";
 import { readDashboardState, writeDashboardState } from "./dashboard-config";
 import { DASHBOARD_TEMPLATES } from "./dashboard-templates";
 import { MAX_THEME_IMAGE_BYTES, contrastRatio, useThemeSystem, type ThemeFont, type ThemeProfile } from "./theme-system";
@@ -22,12 +22,9 @@ function createCustomTheme(base: ThemeProfile): ThemeProfile {
 
 export function AppearanceModule({ onToast }: { onToast: (message: string) => void }) {
   const { state, profile, persist } = useThemeSystem();
-  const [selectedId, setSelectedId] = useState(profile.id);
   const fileRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
-  const selected = useMemo(() => state.profiles.find((item) => item.id === selectedId) ?? profile, [profile, selectedId, state.profiles]);
-
-  useEffect(() => setSelectedId(profile.id), [profile.id]);
+  const selected = profile;
 
   const patch = (value: Partial<ThemeProfile>) => {
     const profiles = state.profiles.map((item) => item.id === selected.id ? { ...item, ...value } : item);
@@ -37,7 +34,6 @@ export function AppearanceModule({ onToast }: { onToast: (message: string) => vo
   const addCustom = () => {
     const custom = createCustomTheme(profile);
     persist({ ...state, profiles: [...state.profiles, custom], activeThemeId: custom.id });
-    setSelectedId(custom.id);
     onToast("Tema personalizado criado.");
   };
 
@@ -64,7 +60,6 @@ export function AppearanceModule({ onToast }: { onToast: (message: string) => vo
         const imported = createCustomTheme({ ...profile, ...candidate });
         imported.name = candidate.name ? `${candidate.name} importado` : "Tema importado";
         persist({ ...state, profiles: [...state.profiles, imported], activeThemeId: imported.id });
-        setSelectedId(imported.id);
         onToast("Tema importado.");
       } catch {
         onToast("Arquivo de tema inválido.");
@@ -96,7 +91,7 @@ export function AppearanceModule({ onToast }: { onToast: (message: string) => vo
       <div className="appearance-grid">
         <aside className="panel theme-list-panel">
           <span className="eyebrow">TEMAS</span>
-          {state.profiles.map((theme) => <button key={theme.id} className={theme.id === selected.id ? "active" : ""} onClick={() => { setSelectedId(theme.id); persist({ ...state, activeThemeId: theme.id }); }}><span style={{ background: theme.background }} /><div><strong>{theme.name}</strong><small>{theme.mode}</small></div>{theme.id === state.activeThemeId && <Check />}</button>)}
+          {state.profiles.map((theme) => <button key={theme.id} className={theme.id === selected.id ? "active" : ""} onClick={() => persist({ ...state, activeThemeId: theme.id })}><span style={{ background: theme.background }} /><div><strong>{theme.name}</strong><small>{theme.mode}</small></div>{theme.id === state.activeThemeId && <Check />}</button>)}
           <input ref={importRef} type="file" accept="application/json" hidden onChange={importTheme} />
           <button className="button secondary full" onClick={() => importRef.current?.click()}><Upload /> Importar tema</button>
         </aside>

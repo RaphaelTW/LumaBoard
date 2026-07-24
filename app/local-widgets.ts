@@ -148,11 +148,6 @@ function parseDateKey(value: string): Date {
   return new Date(year, month - 1, day, 12, 0, 0, 0);
 }
 
-function dateSerial(value: string): number {
-  const [year, month, day] = value.split("-").map(Number);
-  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
-}
-
 function validDateKey(year: number, monthIndex: number, day: number): string | null {
   const date = new Date(year, monthIndex, day, 12, 0, 0, 0);
   if (date.getFullYear() !== year || date.getMonth() !== monthIndex || date.getDate() !== day) return null;
@@ -346,7 +341,7 @@ export function importAgendaICS(text: string): AgendaEvent[] {
 export function useLocalWidgets() {
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [focus, setFocus] = useState<FocusSession>(defaultFocus);
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   const [dueEvents, setDueEvents] = useState<AgendaOccurrence[]>([]);
 
@@ -354,7 +349,7 @@ export function useLocalWidgets() {
     const syncAgenda = (event: Event) => {
       if (event instanceof CustomEvent && Array.isArray(event.detail)) setEvents(normalizeAgenda(event.detail));
       else {
-        const raw = readStoredValue<unknown>(AGENDA_KEY, (_value): _value is unknown => true, []);
+        const raw = readStoredValue<unknown[]>(AGENDA_KEY, Array.isArray, []);
         setEvents(normalizeAgenda(raw));
       }
     };
@@ -367,7 +362,7 @@ export function useLocalWidgets() {
   }, []);
 
   useEffect(() => {
-    const rawEvents = readStoredValue<unknown>(AGENDA_KEY, (_value): _value is unknown => true, []);
+    const rawEvents = readStoredValue<unknown[]>(AGENDA_KEY, Array.isArray, []);
     const savedEvents = normalizeAgenda(rawEvents);
     const savedFocus = readStoredValue<FocusSession>(FOCUS_KEY, isFocus, defaultFocus);
     queueMicrotask(() => {
@@ -427,7 +422,7 @@ export function useLocalWidgets() {
     return () => window.clearInterval(timer);
   }, [events]);
 
-  const visibleFocus = useMemo(() => normalizeFocus(focus), [focus, tick]);
+  const visibleFocus = normalizeFocus(focus);
   const persistEvents = (next: AgendaEvent[]) => {
     const normalized = normalizeAgenda(next).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
     setEvents(normalized);

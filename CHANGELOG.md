@@ -2,6 +2,25 @@
 
 Todas as mudanças relevantes do LumaBoard são registradas neste arquivo. O projeto usa versionamento semântico.
 
+## [1.6.4] - 2026-07-24
+
+### Corrigido
+
+- O projeto volta a passar pelas regras atuais do ESLint para React 19 e Next.js 16.
+- O editor de temas deixa de espelhar estado derivado dentro de `useEffect`, reduzindo renderizações em cascata.
+- O intervalo dos displays passa a editar diretamente o perfil selecionado, sem sincronização redundante por efeito.
+- A saída do modo display usa `next/link` para navegação interna.
+- Validadores de `localStorage` foram reforçados e avisos de código não utilizado foram removidos.
+- O script PowerShell agora interrompe imediatamente quando `npm ci` ou `npm run check` falham e exibe UTF-8 corretamente.
+- A limpeza de `node_modules` no Windows agora detecta arquivos bloqueados e informa como corrigir.
+- O build de produção deixa de importar o ícone inexistente `Install` do `lucide-react`; a ação de instalação usa ícones compatíveis.
+- O verificador remove configurações PostCSS obsoletas deixadas por extrações sobre versões antigas.
+
+### Alterado
+
+- Cache PWA e versão instalada atualizados para 1.6.4.
+- Testes de implantação e responsividade sincronizados com a release.
+
 ## [1.6.3] - 2026-07-24
 
 ### Corrigido
