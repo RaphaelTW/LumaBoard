@@ -9,9 +9,18 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.6.2 — Mobile Navigation & Performance** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.6.3 — Deployment & Mobile Hotfix** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
+
+## Destaques da versão 1.6.3
+
+- sino funcional com painel de notificações rápidas;
+- navbar móvel isolada em cinco posições fixas, sem depender do zoom;
+- raiz do Turbopack presa ao diretório do projeto;
+- remoção do Tailwind/PostCSS não utilizado e do erro de resolução local;
+- configuração Netlify simplificada para o adaptador OpenNext;
+- cache PWA renovado para distribuir a correção aos aparelhos instalados.
 
 ## Destaques da versão 1.6.2
 
@@ -57,7 +66,7 @@ A versão 1.6.1 adiciona uma camada de responsividade comum a todas as áreas do
 - **Estúdio e Display:** widgets são reduzidos para uma coluna em visualizações estreitas;
 - **modais e busca:** usam `dvh`, safe areas e rolagem interna para não ficarem escondidos pelo teclado ou pelas barras do sistema.
 
-A navegação móvel mostra todos os módulos em uma faixa rolável. O item selecionado recebe destaque e é compatível com rolagem por toque.
+A navegação móvel usa cinco posições fixas. Os demais módulos ficam no menu **Mais**, sem faixa rolável e sem ampliar a viewport.
 
 ## Princípio de custo e privacidade
 
@@ -89,10 +98,10 @@ Abra `http://localhost:3000`.
 Validação recomendada:
 
 ```bash
-npm test
-npm run lint
-npm run build
+npm run check
 ```
+
+No Windows, o script [`scripts/verify-release.ps1`](scripts/verify-release.ps1) limpa artefatos antigos, executa `npm ci` e roda lint, testes e build. As instruções completas de publicação estão em [`docs/DEPLOY-WINDOWS.md`](docs/DEPLOY-WINDOWS.md).
 
 ## PWA e experiência offline
 

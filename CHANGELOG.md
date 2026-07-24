@@ -2,6 +2,22 @@
 
 Todas as mudanças relevantes do LumaBoard são registradas neste arquivo. O projeto usa versionamento semântico.
 
+## [1.6.3] - 2026-07-24
+
+### Corrigido
+
+- O sino do cabeçalho agora abre um painel de notificações rápidas, em vez de apenas redirecionar silenciosamente.
+- A navbar móvel foi isolada em uma camada própria, com cinco colunas fixas e sem largura herdada da página.
+- Safe areas, zoom, orientação e telas de 320 px passam a ser tratados pela própria barra inferior.
+- O cache PWA foi renovado para impedir que celulares continuem usando o CSS antigo.
+- O Turbopack agora usa explicitamente a pasta do projeto como raiz, mesmo quando existe outro `package-lock.json` na pasta do usuário.
+- A dependência Tailwind/PostCSS foi removida porque o projeto utiliza CSS próprio; isso elimina o erro `Can't resolve 'tailwindcss'`.
+
+### Implantação
+
+- O `netlify.toml` usa a detecção automática do adaptador OpenNext, sem forçar `.next` como diretório publicado.
+- A proteção contra versões desencontradas do Next.js no Netlify foi habilitada.
+
 ## [1.6.2] - 2026-07-24
 
 ### Corrigido
