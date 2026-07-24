@@ -112,7 +112,8 @@ import { createShareUrl, readDashboardState, readMusicCache, resolveScheduledLay
 import { AgendaModule } from "./agenda-module";
 import { AppearanceModule } from "./appearance-module";
 import { ExperienceModule } from "./experience-module";
-import { usePWA } from "./pwa-manager";
+import { APP_VERSION, usePWA } from "./pwa-manager";
+import { CHANGELOG } from "./changelog-data";
 import { useThemeSystem } from "./theme-system";
 
 const navItems: Array<{ id: View; label: string; icon: typeof Grid2X2 }> = [
@@ -972,6 +973,7 @@ export function LumaBoardApp() {
     null,
   );
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
   const [musicCache, setMusicCache] = useState(() => readMusicCache());
   const [enabledPublicPlugins, setEnabledPublicPlugins] = useState<string[]>(DEFAULT_PUBLIC_PLUGINS);
@@ -1257,6 +1259,7 @@ export function LumaBoardApp() {
             </button>
           ))}
         </nav>
+        <div className="sidebar-version" aria-label={`Versão ${APP_VERSION}`}>v{APP_VERSION}</div>
         <div className="sidebar-device">
           <div className="device-dot" />
           <div>
@@ -1284,6 +1287,7 @@ export function LumaBoardApp() {
             <small className="data-freshness">{pwa.online ? <Wifi /> : <WifiOff />} {pwa.statusText}</small>
           </div>
           <div className="topbar-actions">
+            <button className="version-pill" onClick={() => setActiveView("experience")} aria-label={`Abrir novidades da versão ${APP_VERSION}`}>v{APP_VERSION}</button>
             <button className="global-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Abrir busca global">
               <Search /><span>Buscar no LumaBoard</span><kbd><Command /> K</kbd>
             </button>
@@ -1329,6 +1333,12 @@ export function LumaBoardApp() {
               </button>
             </div>
           </section>
+
+          <button className="release-summary panel" onClick={() => setActiveView("experience")} aria-label="Abrir changelog completo">
+            <span className="release-version">v{APP_VERSION}</span>
+            <span><strong>{CHANGELOG[0]?.title ?? "Atualização recente"}</strong><small>{CHANGELOG[0]?.highlights[0] ?? "Consulte as novidades desta versão."}</small></span>
+            <ChevronRight aria-hidden="true" />
+          </button>
 
           <section className="overview-grid">
             <article className="preview-panel panel">
@@ -1551,8 +1561,27 @@ export function LumaBoardApp() {
         <Check /> {toast}
       </div>
 
+      {mobileMenuOpen && (
+        <div className="mobile-menu-backdrop" role="presentation" onClick={() => setMobileMenuOpen(false)}>
+          <section className="mobile-module-sheet" role="dialog" aria-modal="true" aria-label="Todos os módulos" onClick={(event) => event.stopPropagation()}>
+            <header><div><span className="eyebrow">NAVEGAÇÃO</span><strong>Todos os módulos</strong></div><button className="icon-button" onClick={() => setMobileMenuOpen(false)} aria-label="Fechar menu"><X /></button></header>
+            <div>
+              {navItems.map(({ id, label, icon: Icon }) => (
+                <button key={id} className={activeView === id ? "active" : ""} onClick={() => { setActiveView(id); setMobileMenuOpen(false); }}>
+                  <Icon /><span>{label}</span>
+                </button>
+              ))}
+            </div>
+            <footer>
+              <span>LumaBoard v{APP_VERSION}</span>
+              <button onClick={() => { setActiveView("experience"); setMobileMenuOpen(false); }}>Ver changelog</button>
+            </footer>
+          </section>
+        </div>
+      )}
+
       <nav className="mobile-nav" aria-label="Navegação móvel">
-        {navItems.map(({ id, label, icon: Icon }) => (
+        {navItems.slice(0, 4).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             className={activeView === id ? "active" : ""}
@@ -1562,6 +1591,9 @@ export function LumaBoardApp() {
             <Icon /><span>{label}</span>
           </button>
         ))}
+        <button className={navItems.slice(4).some((item) => item.id === activeView) ? "active" : ""} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}>
+          <MoreHorizontal /><span>Mais</span>
+        </button>
       </nav>
     </div>
   );

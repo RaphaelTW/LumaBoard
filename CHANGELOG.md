@@ -2,6 +2,24 @@
 
 Todas as mudanças relevantes do LumaBoard são registradas neste arquivo. O projeto usa versionamento semântico.
 
+## [1.6.2] - 2026-07-24
+
+### Corrigido
+
+- Navegação inferior móvel refeita para cinco posições estáveis, sem depender de zoom manual.
+- Acesso aos demais módulos movido para um menu inferior completo e responsivo.
+- Cabeçalho móvel protegido contra corte do logotipo, avatar e ações em Android e iPhone.
+- Containers principais agora respeitam integralmente a largura visual do aparelho.
+- Fundo e tema passam a cobrir toda a viewport, inclusive após alteração de zoom e orientação.
+- Cache da PWA atualizado para distribuir imediatamente os estilos corrigidos.
+
+### Alterado
+
+- Versão instalada passa a aparecer na barra lateral, no painel inicial e no menu móvel.
+- Painel inicial ganhou um resumo clicável da release atual.
+- CSS responsivo foi consolidado para reduzir regras conflitantes e melhorar renderização.
+- Testes responsivos agora verificam viewport, navegação fixa, menu completo e versão do cache.
+
 ## [1.6.1] - 2026-07-23
 
 ### Corrigido

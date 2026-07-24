@@ -9,9 +9,18 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.6.1 — Responsive Experience** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.6.2 — Mobile Navigation & Performance** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
+
+## Destaques da versão 1.6.2
+
+- navegação inferior móvel com cinco posições fixas, sem estouro lateral;
+- menu “Mais” com acesso a todos os módulos;
+- cabeçalho compacto e previsível em Android, iPhone e PWA instalada;
+- correção de overflow e cobertura de tema em toda a viewport;
+- versão e resumo da release visíveis dentro do painel;
+- cache PWA atualizado e testes responsivos ampliados.
 
 ## Destaques da versão 1.6.1
 

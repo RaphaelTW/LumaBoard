@@ -4,23 +4,32 @@ import { describe, expect, it } from "vitest";
 const css = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("./LumaBoardApp.tsx", import.meta.url), "utf8");
 const serviceWorker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+const layout = readFileSync(new URL("./layout.tsx", import.meta.url), "utf8");
 
-describe("responsive experience v1.6.1", () => {
-  it("keeps the mobile navigation complete and horizontally scrollable", () => {
-    expect(app).toContain("{navItems.map(");
-    expect(app).not.toContain("navItems.slice(0, 5)");
-    expect(css).toContain("overflow-x: auto;");
-    expect(css).toContain("scroll-snap-type: x proximity;");
-  });
-
-  it("provides compact phone and tablet breakpoints", () => {
-    expect(css).toContain("@media (max-width: 900px)");
-    expect(css).toContain("@media (max-width: 520px)");
-    expect(css).toContain("@media (max-width: 340px)");
+ describe("responsive experience v1.6.2", () => {
+  it("declares the real device viewport and safe-area support", () => {
+    expect(layout).toContain('width: "device-width"');
+    expect(layout).toContain("initialScale: 1");
+    expect(layout).toContain('viewportFit: "cover"');
+    expect(css).toContain("max-width: 100vw");
     expect(css).toContain("env(safe-area-inset-bottom)");
   });
 
-  it("bumps the PWA cache so responsive styles reach installed apps", () => {
-    expect(serviceWorker).toContain('const VERSION = "1.6.1";');
+  it("uses five stable mobile navigation slots and a complete module sheet", () => {
+    expect(app).toContain("navItems.slice(0, 4)");
+    expect(app).toContain("Todos os módulos");
+    expect(app).toContain("mobile-module-sheet");
+    expect(css).toContain("grid-template-columns: repeat(5, minmax(0, 1fr))");
+    expect(css).toContain("overflow: hidden");
+  });
+
+  it("shows the installed version and release summary", () => {
+    expect(app).toContain("release-summary");
+    expect(app).toContain("APP_VERSION");
+    expect(app).toContain("CHANGELOG[0]");
+  });
+
+  it("bumps the PWA cache so fixed styles reach installed apps", () => {
+    expect(serviceWorker).toContain('const VERSION = "1.6.2";');
   });
 });
