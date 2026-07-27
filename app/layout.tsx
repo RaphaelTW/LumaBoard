@@ -5,6 +5,7 @@ import "./desktop-shell.css";
 import { PWAProvider } from "./pwa-manager";
 import { ThemeController } from "./theme-controller";
 import { AppErrorBoundary } from "./error-boundary";
+import { PrivacyConsent } from "./privacy-consent";
 
 export const metadata: Metadata = {
   title: "LumaBoard — Painéis ambientes, sem distrações",
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <PWAProvider>
           <ThemeController />
           <AppErrorBoundary>{children}</AppErrorBoundary>
+          <PrivacyConsent />
         </PWAProvider>
       </body>
     </html>

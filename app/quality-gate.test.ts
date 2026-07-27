@@ -7,7 +7,7 @@ const display = readFileSync(new URL("./display/display-client.tsx", import.meta
 const experience = readFileSync(new URL("./experience-module.tsx", import.meta.url), "utf8");
 const verifier = readFileSync(new URL("../scripts/verify-release.ps1", import.meta.url), "utf8");
 
-describe("quality gate v1.8.0", () => {
+describe("quality gate v1.8.1", () => {
   it("does not mirror derived theme or device state through synchronous effects", () => {
     expect(appearance).not.toContain("useEffect(() => setSelectedId");
     expect(modules).not.toContain("setRefreshMinutes(selected.interval)");

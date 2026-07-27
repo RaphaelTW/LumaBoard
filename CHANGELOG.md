@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.1] - 2026-07-27
+
+### Privacidade e transparência
+
+- Novas páginas estáticas de Termos de Uso, Aviso de Privacidade e Política de Cookies e Armazenamento Local.
+- Banner de escolhas locais com categorias necessárias, preferências e conteúdo externo.
+- Publicidade e estatísticas permanecem desativadas; qualquer ativação futura exigirá novo aviso.
+- Botão permanente de Privacidade para revisão das escolhas.
+- Consentimento versionado no localStorage e incluído no backup local.
+- Textos preparados para revisão jurídica antes de monetização.
+- Cache PWA e versão instalada atualizados para 1.8.1.
+
+
 ## [1.8.0] - 2026-07-27
 
 ### Adicionado

@@ -36,7 +36,9 @@ export type StorageKey =
   | "lumaboard-changelog-v1"
   | "lumaboard-performance-v1"
   | "lumaboard-storage-issues-v1"
-  | "lumaboard-client-errors-v1";
+  | "lumaboard-client-errors-v1"
+  | "lumaboard-consent-v1"
+  | "lumaboard-legal-acceptance-v1";
 
 export type BackupPayload = {
   version: number;
@@ -81,6 +83,8 @@ export const managedKeys: StorageKey[] = [
   "lumaboard-performance-v1",
   "lumaboard-storage-issues-v1",
   "lumaboard-client-errors-v1",
+  "lumaboard-consent-v1",
+  "lumaboard-legal-acceptance-v1",
 ];
 
 function byteLength(value: string): number {

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { exportLocalBackup, importLocalBackup, migrateBackup, readStoredValue, safeParseJSON, writeStoredValue } from "./storage";
 
-export const APP_VERSION = "1.8.0";
+export const APP_VERSION = "1.8.1";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
