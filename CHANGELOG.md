@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.8.0] - 2026-07-27
+
+### Adicionado
+
+- Oito temas oficiais: Papel, Noturno, OLED, E-paper, Oceano, Floresta, Pôr do sol e Lavanda.
+- Controles de densidade, arredondamento, sombras, escala tipográfica e contraste automático.
+- Pré-visualização ao vivo do tema antes de aplicá-lo ao restante do painel.
+- Duplicação e exclusão segura de temas personalizados, além de restauração dos temas oficiais.
+- Exportação de um tema ou de uma coleção completa e importação compatível com os dois formatos.
+- Escolha de tema por layout, mantendo um tema global como fallback.
+- Galeria com 16 modelos locais, busca textual, filtros por categoria, favoritos e modal de pré-visualização.
+- Metadados de público, dispositivo, tags, paleta e destaque para cada modelo.
+- Novos modelos: Bom dia, Resumo executivo, Minimal, Turno noturno, Fim de semana e Agenda da família.
+- Testes específicos para migração de temas, pacotes, filtros e interface da galeria.
+
+### Alterado
+
+- Estado dos temas migrado automaticamente para a versão 3.
+- Variáveis CSS agora controlam cantos, densidade e intensidade das sombras.
+- Cache PWA e versão instalada atualizados para 1.8.0.
+
 Todas as mudanças relevantes do LumaBoard são registradas neste arquivo. O projeto usa versionamento semântico.
 
 ## [1.7.1] - 2026-07-24

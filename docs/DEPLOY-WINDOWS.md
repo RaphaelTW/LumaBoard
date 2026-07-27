@@ -38,46 +38,28 @@ npm run check
 
 Não continue para o commit quando algum comando terminar com erro.
 
-## Commit da v1.7.1
-
-Execute cada comando separadamente:
+## Commit da v1.8.0
 
 ```powershell
-git status
 git add -A
-git commit -m "fix: release adaptive desktop hotfix v1.7.1" -m "Fix desktop viewport sizing by discounting the fixed sidebar, compact the sidebar earlier on notebooks and zoomed windows, reflow overview status cards, wrap page actions safely, preserve the validated mobile navigation, add responsive regression tests, and refresh the PWA cache."
+git commit -m "feat: release Themes and Template Gallery v1.8.0" -m "Add eight official themes, advanced density and surface controls, theme collections, per-layout identities, a searchable gallery with sixteen local templates, favorites, previews, responsive presentation, migration to theme state v3, regression tests, documentation, and refreshed PWA cache."
 ```
 
-## Tag anotada
+## Tag e push
 
 ```powershell
-git tag -a v1.7.1 -m "LumaBoard v1.7.1 - Adaptive Desktop Hotfix"
-```
-
-## Push
-
-```powershell
+git tag -a v1.8.0 -m "LumaBoard v1.8.0 - Themes and Template Gallery"
 git push origin main
-git push origin v1.7.1
+git push origin v1.8.0
 ```
 
-## Confirmar no GitHub
+## Conferência
 
 ```powershell
 git log -3 --oneline --decorate
 git ls-remote --heads origin main
-git ls-remote --tags origin "refs/tags/v1.7.1*"
+git ls-remote --tags origin "refs/tags/v1.8.0*"
 git status
 ```
 
-Para uma tag anotada, o comando pode mostrar `refs/tags/v1.7.1` e `refs/tags/v1.7.1^{}`. Isso é normal.
-
-## Configuração esperada no Netlify
-
-- **Base directory:** vazio, quando `package.json` está na raiz.
-- **Build command:** `npm run build`.
-- **Publish directory:** detecção automática do Next.js/OpenNext.
-- **Production branch:** `main`.
-- **Node.js:** versão definida no `netlify.toml`.
-
-Depois do push, abra **Deploys** no Netlify e confirme que o commit da v1.7.1 aparece. Em uma PWA instalada, feche e abra o aplicativo novamente e use **Atualizar agora** quando o aviso surgir.
+Depois do push, abra **Deploys** no Netlify e confirme o commit da v1.8.0. Em uma PWA instalada, feche e abra o aplicativo novamente e use **Atualizar agora** quando o aviso surgir.

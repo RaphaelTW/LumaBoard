@@ -9,19 +9,22 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.7.1 — Adaptive Desktop Hotfix** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.8.0 — Themes & Template Gallery** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
 
-## Destaques da versão 1.7.1
+## Destaques da versão 1.8.0
 
-- correção do corte horizontal em desktops, notebooks e janelas menores;
-- conteúdo principal dimensionado pela viewport útil após descontar a sidebar fixa;
-- sidebar compacta antecipada para preservar espaço em zoom e resoluções intermediárias;
-- pré-visualização e cartões laterais reorganizados automaticamente quando necessário;
-- cabeçalhos e ações responsivos sem botões fora da tela;
-- mobile mantido sem mudanças na navbar inferior validada;
-- cache PWA renovado para distribuir os estilos corrigidos.
+- oito temas oficiais: Papel, Noturno, OLED, E-paper, Oceano, Floresta, Pôr do sol e Lavanda;
+- editor avançado de cores, tipografia, densidade, cantos, sombras e contraste;
+- pré-visualização do tema em tempo real antes de aplicar;
+- duplicação, restauração e exclusão segura de temas personalizados;
+- exportação e importação de um tema ou de uma coleção completa;
+- escolha de tema global ou de um tema diferente para cada layout;
+- galeria com 16 modelos locais, busca, categorias, favoritos e pré-visualização;
+- modelos otimizados para celular, tablet, desktop, TV e e-paper;
+- migração automática do sistema de temas para a versão 3;
+- funcionamento totalmente local, sem conta, chave de API ou custo adicional.
 
 ## Destaques da versão 1.7.0
 

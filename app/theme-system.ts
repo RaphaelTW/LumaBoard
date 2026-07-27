@@ -6,6 +6,7 @@ import { isRecord, readStoredValue, writeStoredValue } from "./storage";
 export type ThemeMode = "paper" | "night" | "oled" | "eink" | "custom";
 export type ThemeBackground = "solid" | "gradient" | "image";
 export type ThemeFont = "system" | "serif" | "mono";
+export type ThemeDensity = "compact" | "comfortable" | "spacious";
 
 export type ThemeProfile = {
   id: string;
@@ -22,32 +23,62 @@ export type ThemeProfile = {
   imageData: string | null;
   font: ThemeFont;
   fontScale: number;
+  radius: number;
+  density: ThemeDensity;
+  shadowStrength: number;
   autoContrast: boolean;
 };
 
 export type ThemeState = {
-  version: 2;
+  version: 3;
   activeThemeId: string;
   profiles: ThemeProfile[];
   layoutThemes: Record<string, string>;
+};
+
+export type ThemeBundle = {
+  kind: "lumaboard-theme-bundle";
+  version: 1;
+  exportedAt: string;
+  themes: ThemeProfile[];
 };
 
 export const THEME_STORAGE_KEY = "lumaboard-theme-v2";
 export const MAX_THEME_IMAGE_BYTES = 700_000;
 const MAX_THEME_IMAGE_DATA_BYTES = 950_000;
 
+const base = {
+  imageData: null,
+  fontScale: 1,
+  radius: 8,
+  density: "comfortable" as ThemeDensity,
+  shadowStrength: 0.55,
+  autoContrast: true,
+};
+
 export const BUILTIN_THEMES: ThemeProfile[] = [
-  { id: "paper", name: "Papel", mode: "paper", accent: "#35513a", surface: "#fbfaf6", text: "#151713", muted: "#5f625b", border: "#cec8bb", backgroundType: "solid", background: "#f2efe7", gradientEnd: "#e7e1d5", imageData: null, font: "system", fontScale: 1, autoContrast: true },
-  { id: "night", name: "Noturno", mode: "night", accent: "#6ee7f2", surface: "#101925", text: "#f4f7fa", muted: "#91a2b6", border: "#213044", backgroundType: "gradient", background: "#080d14", gradientEnd: "#111d2a", imageData: null, font: "system", fontScale: 1, autoContrast: true },
-  { id: "oled", name: "OLED", mode: "oled", accent: "#7df9ff", surface: "#080808", text: "#ffffff", muted: "#a0a0a0", border: "#272727", backgroundType: "solid", background: "#000000", gradientEnd: "#050505", imageData: null, font: "system", fontScale: 1, autoContrast: true },
-  { id: "eink", name: "E-paper", mode: "eink", accent: "#111111", surface: "#f7f5ed", text: "#111111", muted: "#4e4e49", border: "#262626", backgroundType: "solid", background: "#eceae1", gradientEnd: "#f7f5ed", imageData: null, font: "serif", fontScale: 1.05, autoContrast: true },
+  { ...base, id: "paper", name: "Papel", mode: "paper", accent: "#35513a", surface: "#fbfaf6", text: "#151713", muted: "#5f625b", border: "#cec8bb", backgroundType: "solid", background: "#f2efe7", gradientEnd: "#e7e1d5", font: "system" },
+  { ...base, id: "night", name: "Noturno", mode: "night", accent: "#6ee7f2", surface: "#101925", text: "#f4f7fa", muted: "#91a2b6", border: "#213044", backgroundType: "gradient", background: "#080d14", gradientEnd: "#111d2a", font: "system", shadowStrength: 0.8 },
+  { ...base, id: "oled", name: "OLED", mode: "oled", accent: "#7df9ff", surface: "#080808", text: "#ffffff", muted: "#a0a0a0", border: "#272727", backgroundType: "solid", background: "#000000", gradientEnd: "#050505", font: "system", radius: 6, shadowStrength: 0.2 },
+  { ...base, id: "eink", name: "E-paper", mode: "eink", accent: "#111111", surface: "#f7f5ed", text: "#111111", muted: "#4e4e49", border: "#262626", backgroundType: "solid", background: "#eceae1", gradientEnd: "#f7f5ed", font: "serif", fontScale: 1.05, radius: 2, density: "compact", shadowStrength: 0 },
+  { ...base, id: "ocean", name: "Oceano", mode: "custom", accent: "#22d3ee", surface: "#082f49", text: "#ecfeff", muted: "#a5f3fc", border: "#155e75", backgroundType: "gradient", background: "#020617", gradientEnd: "#083344", font: "system", radius: 12, shadowStrength: 0.75 },
+  { ...base, id: "forest", name: "Floresta", mode: "custom", accent: "#84cc16", surface: "#19351f", text: "#f7fee7", muted: "#d9f99d", border: "#3f6212", backgroundType: "gradient", background: "#0f1f14", gradientEnd: "#25402a", font: "serif", radius: 10, shadowStrength: 0.65 },
+  { ...base, id: "sunset", name: "Pôr do sol", mode: "custom", accent: "#fb7185", surface: "#431a2b", text: "#fff1f2", muted: "#fecdd3", border: "#9f1239", backgroundType: "gradient", background: "#2b1020", gradientEnd: "#7c2d12", font: "system", radius: 14, density: "spacious", shadowStrength: 0.8 },
+  { ...base, id: "lavender", name: "Lavanda", mode: "custom", accent: "#8b5cf6", surface: "#faf5ff", text: "#2e1065", muted: "#6b21a8", border: "#d8b4fe", backgroundType: "gradient", background: "#f5f3ff", gradientEnd: "#ede9fe", font: "system", radius: 14, shadowStrength: 0.4 },
 ];
+
+export const BUILTIN_THEME_IDS = new Set(BUILTIN_THEMES.map((theme) => theme.id));
 
 function validHex(value: unknown, fallback: string): string {
   return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
 }
 
-function normalizeProfile(value: unknown, fallback = BUILTIN_THEMES[0]): ThemeProfile | null {
+function finite(value: unknown, fallback: number, minimum: number, maximum: number): number {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
+}
+
+export function normalizeThemeProfile(value: unknown, fallback = BUILTIN_THEMES[0]): ThemeProfile | null {
   if (!isRecord(value)) return null;
   const imageData = typeof value.imageData === "string" && value.imageData.startsWith("data:image/") && new TextEncoder().encode(value.imageData).byteLength <= MAX_THEME_IMAGE_DATA_BYTES ? value.imageData : null;
   return {
@@ -64,24 +95,29 @@ function normalizeProfile(value: unknown, fallback = BUILTIN_THEMES[0]): ThemePr
     gradientEnd: validHex(value.gradientEnd, fallback.gradientEnd),
     imageData,
     font: value.font === "serif" || value.font === "mono" ? value.font : "system",
-    fontScale: Math.min(1.35, Math.max(0.85, Number(value.fontScale) || 1)),
+    fontScale: finite(value.fontScale, fallback.fontScale, 0.85, 1.35),
+    radius: Math.round(finite(value.radius, fallback.radius, 0, 24)),
+    density: value.density === "compact" || value.density === "spacious" ? value.density : "comfortable",
+    shadowStrength: finite(value.shadowStrength, fallback.shadowStrength, 0, 1),
     autoContrast: value.autoContrast !== false,
   };
 }
 
 export function createDefaultThemeState(): ThemeState {
-  return { version: 2, activeThemeId: "paper", profiles: BUILTIN_THEMES.map((theme) => ({ ...theme })), layoutThemes: {} };
+  return { version: 3, activeThemeId: "paper", profiles: BUILTIN_THEMES.map((theme) => ({ ...theme })), layoutThemes: {} };
 }
 
 export function normalizeThemeState(value: unknown): ThemeState {
   const fallback = createDefaultThemeState();
   if (!isRecord(value) || !Array.isArray(value.profiles)) return fallback;
   const profiles = value.profiles.flatMap((profile) => {
-    const normalized = normalizeProfile(profile);
+    const normalized = normalizeThemeProfile(profile);
     return normalized ? [normalized] : [];
   });
   for (const builtin of BUILTIN_THEMES) {
-    if (!profiles.some((profile) => profile.id === builtin.id)) profiles.push({ ...builtin });
+    const index = profiles.findIndex((profile) => profile.id === builtin.id);
+    if (index === -1) profiles.push({ ...builtin });
+    else profiles[index] = { ...builtin, ...profiles[index], id: builtin.id, name: profiles[index].name || builtin.name };
   }
   const ids = new Set(profiles.map((profile) => profile.id));
   const activeThemeId = typeof value.activeThemeId === "string" && ids.has(value.activeThemeId) ? value.activeThemeId : "paper";
@@ -91,7 +127,7 @@ export function normalizeThemeState(value: unknown): ThemeState {
       if (typeof themeId === "string" && ids.has(themeId)) layoutThemes[layoutId] = themeId;
     }
   }
-  return { version: 2, activeThemeId, profiles, layoutThemes };
+  return { version: 3, activeThemeId, profiles, layoutThemes };
 }
 
 export function readThemeState(): ThemeState {
@@ -129,53 +165,42 @@ export function ensureContrast(profile: ThemeProfile): ThemeProfile {
   return { ...profile, text: whiteRatio > blackRatio ? "#ffffff" : "#111111", muted: whiteRatio > blackRatio ? "#c4c4c4" : "#4a4a4a" };
 }
 
+function densityGap(density: ThemeDensity): string {
+  return density === "compact" ? "0.78" : density === "spacious" ? "1.18" : "1";
+}
+
+function shadowFor(theme: ThemeProfile): string {
+  if (theme.shadowStrength <= 0.02) return "none";
+  const alpha = (0.06 + theme.shadowStrength * 0.2).toFixed(2);
+  const y = Math.round(5 + theme.shadowStrength * 15);
+  const blur = Math.round(18 + theme.shadowStrength * 34);
+  return `0 ${y}px ${blur}px rgba(0,0,0,${alpha})`;
+}
+
+function themeBackground(theme: ThemeProfile, fixed = false): string {
+  return theme.backgroundType === "image" && theme.imageData
+    ? `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.12)), url(${JSON.stringify(theme.imageData)}) center/cover${fixed ? " fixed" : ""}`
+    : theme.backgroundType === "gradient"
+      ? `linear-gradient(145deg, ${theme.background}, ${theme.gradientEnd})`
+      : theme.background;
+}
+
 export function applyTheme(profile: ThemeProfile) {
   if (typeof document === "undefined") return;
   const theme = ensureContrast(profile);
   const root = document.documentElement;
+  const variables = themeCssVariables(theme);
   root.dataset.lumaboardTheme = theme.mode;
-  root.style.setProperty("--accent", theme.accent);
-  root.style.setProperty("--accent-strong", theme.accent);
-  root.style.setProperty("--accent-soft", `color-mix(in srgb, ${theme.accent} 14%, transparent)`);
-  root.style.setProperty("--on-accent", contrastRatio("#ffffff", theme.accent) >= contrastRatio("#111111", theme.accent) ? "#ffffff" : "#111111");
-  root.style.setProperty("--surface", theme.surface);
-  root.style.setProperty("--surface-2", theme.surface);
-  root.style.setProperty("--sidebar", theme.surface);
-  root.style.setProperty("--text", theme.text);
-  root.style.setProperty("--ink", theme.text);
-  root.style.setProperty("--text-muted", theme.muted);
-  root.style.setProperty("--ink-muted", theme.muted);
-  root.style.setProperty("--border", theme.border);
-  root.style.setProperty("--line", theme.border);
-  root.style.setProperty("--shell", theme.background);
-  const dark = theme.mode === "night" || theme.mode === "oled";
-  root.style.setProperty("--success", dark ? "#7fe28c" : "#3d6545");
-  root.style.setProperty("--warning", dark ? "#f2b85b" : "#a2672f");
-  root.style.setProperty("--cyan", theme.accent);
-  root.style.setProperty("--amber", dark ? "#f2b85b" : "#a2672f");
-  root.style.setProperty("--eink-paper", "#f4f1e8");
-  root.style.setProperty("--eink-ink", "#182026");
-  root.style.setProperty("--shadow", dark ? "0 18px 50px rgba(0,0,0,.18)" : "0 10px 30px rgba(21,23,19,.055)");
-  root.style.setProperty("--theme-font-scale", String(theme.fontScale));
-  root.style.setProperty("--theme-font", theme.font === "serif" ? "Georgia, 'Times New Roman', serif" : theme.font === "mono" ? "ui-monospace, 'Courier New', monospace" : "'Arial Narrow', 'Inter Tight', Inter, Arial, sans-serif");
-  const background = theme.backgroundType === "image" && theme.imageData
-    ? `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.12)), url(${JSON.stringify(theme.imageData)}) center/cover fixed`
-    : theme.backgroundType === "gradient"
-      ? `linear-gradient(145deg, ${theme.background}, ${theme.gradientEnd})`
-      : theme.background;
-  root.style.setProperty("--theme-background", background);
-  root.style.colorScheme = theme.mode === "night" || theme.mode === "oled" ? "dark" : "light";
-  const meta = document.querySelector('meta[name="theme-color"]');
-  meta?.setAttribute("content", theme.background);
+  for (const [key, value] of Object.entries(variables)) root.style.setProperty(key, value);
+  root.style.setProperty("--theme-background", themeBackground(theme, true));
+  root.style.colorScheme = theme.mode === "night" || theme.mode === "oled" || contrastRatio("#ffffff", theme.background) > contrastRatio("#111111", theme.background) ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme.background);
 }
 
 export function useThemeSystem(layoutId?: string | null) {
   const [state, setState] = useState(createDefaultThemeState);
   useEffect(() => {
-    const sync = (event?: Event) => {
-      const next = event instanceof CustomEvent ? normalizeThemeState(event.detail) : readThemeState();
-      setState(next);
-    };
+    const sync = (event?: Event) => setState(event instanceof CustomEvent ? normalizeThemeState(event.detail) : readThemeState());
     queueMicrotask(() => sync());
     window.addEventListener("lumaboard:theme", sync);
     window.addEventListener("storage", sync);
@@ -209,11 +234,7 @@ export function useThemeForLayout(layoutId: string) {
 
 export function themeCssVariables(profile: ThemeProfile): Record<string, string> {
   const theme = ensureContrast(profile);
-  const background = theme.backgroundType === "image" && theme.imageData
-    ? `linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.12)), url(${JSON.stringify(theme.imageData)}) center/cover`
-    : theme.backgroundType === "gradient"
-      ? `linear-gradient(145deg, ${theme.background}, ${theme.gradientEnd})`
-      : theme.background;
+  const dark = theme.mode === "night" || theme.mode === "oled" || contrastRatio("#ffffff", theme.background) > contrastRatio("#111111", theme.background);
   return {
     "--accent": theme.accent,
     "--accent-strong": theme.accent,
@@ -223,18 +244,38 @@ export function themeCssVariables(profile: ThemeProfile): Record<string, string>
     "--surface-2": theme.surface,
     "--sidebar": theme.surface,
     "--text": theme.text,
+    "--ink": theme.text,
     "--text-muted": theme.muted,
+    "--ink-muted": theme.muted,
     "--border": theme.border,
+    "--line": theme.border,
     "--shell": theme.background,
-    "--success": theme.mode === "night" || theme.mode === "oled" ? "#7fe28c" : "#3d6545",
-    "--warning": theme.mode === "night" || theme.mode === "oled" ? "#f2b85b" : "#a2672f",
+    "--success": dark ? "#7fe28c" : "#3d6545",
+    "--warning": dark ? "#f2b85b" : "#a2672f",
     "--cyan": theme.accent,
-    "--amber": theme.mode === "night" || theme.mode === "oled" ? "#f2b85b" : "#a2672f",
+    "--amber": dark ? "#f2b85b" : "#a2672f",
     "--eink-paper": "#f4f1e8",
     "--eink-ink": "#182026",
-    "--shadow": theme.mode === "night" || theme.mode === "oled" ? "0 18px 50px rgba(0,0,0,.18)" : "0 10px 30px rgba(21,23,19,.055)",
-    "--theme-background": background,
+    "--shadow": shadowFor(theme),
+    "--theme-background": themeBackground(theme),
     "--theme-font-scale": String(theme.fontScale),
     "--theme-font": theme.font === "serif" ? "Georgia, 'Times New Roman', serif" : theme.font === "mono" ? "ui-monospace, 'Courier New', monospace" : "'Arial Narrow', 'Inter Tight', Inter, Arial, sans-serif",
+    "--theme-radius": `${theme.radius}px`,
+    "--theme-density": densityGap(theme.density),
   };
+}
+
+export function createThemeBundle(themes: ThemeProfile[]): ThemeBundle {
+  return { kind: "lumaboard-theme-bundle", version: 1, exportedAt: new Date().toISOString(), themes: themes.map((theme) => ({ ...theme })) };
+}
+
+export function parseThemeBundle(value: unknown): ThemeProfile[] {
+  if (isRecord(value) && value.kind === "lumaboard-theme-bundle" && Array.isArray(value.themes)) {
+    return value.themes.flatMap((theme) => {
+      const normalized = normalizeThemeProfile(theme);
+      return normalized ? [{ ...normalized, id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, mode: "custom" as const }] : [];
+    });
+  }
+  const single = normalizeThemeProfile(value);
+  return single ? [{ ...single, id: `custom-${Date.now()}`, mode: "custom" }] : [];
 }

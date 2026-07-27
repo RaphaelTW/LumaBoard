@@ -13,7 +13,7 @@ Write-Host "Versão encontrada: $($package.version)" -ForegroundColor Green
 $parentLock = Join-Path (Split-Path $HOME -Parent) "package-lock.json"
 $userLock = Join-Path $HOME "package-lock.json"
 if (Test-Path $userLock) {
-  Write-Warning "Existe outro package-lock.json em $userLock. A v1.7.1 fixa a raiz do Turbopack, mas remova ou renomeie esse arquivo caso ele não pertença a outro projeto."
+  Write-Warning "Existe outro package-lock.json em $userLock. A v1.8.0 fixa a raiz do Turbopack, mas remova ou renomeie esse arquivo caso ele não pertença a outro projeto."
 }
 
 Remove-Item ".next" -Recurse -Force -ErrorAction SilentlyContinue

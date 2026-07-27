@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DASHBOARD_TEMPLATES } from "./dashboard-templates";
+import { DASHBOARD_TEMPLATES, findTemplates, templateCategories } from "./dashboard-templates";
 import { decodeDashboardState, encodeDashboardState, normalizeDashboardState } from "./dashboard-config";
 
-describe("dashboard templates", () => {
-  it("ships ten unique local templates", () => {
-    expect(DASHBOARD_TEMPLATES).toHaveLength(10);
-    expect(new Set(DASHBOARD_TEMPLATES.map((template) => template.id)).size).toBe(10);
+describe("dashboard template gallery v1.8.0", () => {
+  it("ships sixteen unique local templates", () => {
+    expect(DASHBOARD_TEMPLATES).toHaveLength(16);
+    expect(new Set(DASHBOARD_TEMPLATES.map((template) => template.id)).size).toBe(16);
+    expect(templateCategories()).toHaveLength(5);
   });
 
   it("creates valid layouts without external data", () => {
@@ -14,7 +15,15 @@ describe("dashboard templates", () => {
       expect(layout.name.length).toBeGreaterThan(0);
       expect(layout.widgets.length).toBeGreaterThan(0);
       expect(layout.columns).toBeGreaterThanOrEqual(1);
+      expect(template.palette).toHaveLength(3);
+      expect(template.tags.length).toBeGreaterThan(0);
     }
+  });
+
+  it("filters by query and category while sorting favorites first", () => {
+    expect(findTemplates("anime", "all").some((template) => template.id === "anime")).toBe(true);
+    expect(findTemplates("", "produtividade").every((template) => template.category === "produtividade")).toBe(true);
+    expect(findTemplates("", "all", ["study"])[0].id).toBe("study");
   });
 
   it("round-trips a dashboard through the share encoder", () => {
