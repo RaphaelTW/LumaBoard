@@ -22,7 +22,7 @@ import { readAutomationState } from "./automation";
 import { CHANGELOG } from "./changelog-data";
 import { useLocalWidgets } from "./local-widgets";
 import { APP_VERSION, usePWA } from "./pwa-manager";
-import { exportLocalBackup, importLocalBackup, migrateBackup, resetSettingsPreservingPersonalData, safeParseJSON, storageUsage, type BackupPayload } from "./storage";
+import { exportLocalBackup, importLocalBackup, migrateBackup, resetSettingsPreservingPersonalData, safeParseJSON, storageUsage, writeStoredValue, type BackupPayload } from "./storage";
 import type { PublicSummary } from "./public-data";
 
 export type PublicStatus = "idle" | "loading" | "ready" | "stale" | "error";
@@ -41,7 +41,7 @@ function readDismissed(): DismissedState {
 }
 
 function saveDismissed(value: DismissedState) {
-  window.localStorage.setItem("lumaboard-notification-center-v1", JSON.stringify(value));
+  writeStoredValue("lumaboard-notification-center-v1", value);
 }
 
 function download(filename: string, text: string) {
@@ -92,7 +92,7 @@ export function ExperienceModule({ summary, publicStatus, weatherStatus, onToast
       setUsage(storageUsage());
       const data = collectPerformance();
       setPerformanceData(data);
-      window.localStorage.setItem("lumaboard-performance-v1", JSON.stringify(data));
+      writeStoredValue("lumaboard-performance-v1", data);
     });
     const audioError = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
@@ -231,7 +231,7 @@ export function ExperienceModule({ summary, publicStatus, weatherStatus, onToast
         <article className="panel experience-tool-card"><ArchiveRestore /><div><strong>Backup validado</strong><span>{pwa.hasUpdateBackup ? "Há uma cópia temporária criada antes da atualização." : "Limite de 4,5 MB, migração automática e somente chaves reconhecidas."}</span></div><div><button className="button secondary" onClick={exportBackup}><Download /> Exportar</button><button className="button secondary" onClick={() => importRef.current?.click()}><Upload /> Importar</button>{pwa.hasUpdateBackup && <button className="button primary" onClick={() => { if (pwa.restoreUpdateBackup()) { onToast("Cópia anterior restaurada. Recarregando…"); window.setTimeout(() => window.location.reload(), 400); } else onToast("Não foi possível restaurar a cópia temporária."); }}>Recuperar atualização</button>}<input ref={importRef} hidden type="file" accept="application/json" onChange={importBackup} /></div></article>
         <article className="panel experience-tool-card"><Trash2 /><div><strong>Limpeza seletiva</strong><span>Apague respostas antigas sem remover agenda, layouts, temas ou favoritos.</span></div><button className="button secondary" onClick={() => void clearCaches()}>Limpar caches</button></article>
         <article className="panel experience-tool-card"><History /><div><strong>Restaurar configurações</strong><span>Mantenha agenda, tarefas, Pomodoro, notícias e músicas favoritas.</span></div><button className="button secondary" onClick={resetSettings}>Restaurar</button></article>
-        <article className="panel experience-tool-card"><Gauge /><div><strong>Desempenho local</strong><span>DOM {performanceData.domInteractiveMs ?? "—"} ms · carga {performanceData.loadMs ?? "—"} ms · heap {performanceData.heapMb ?? "—"} MB</span></div><button className="button secondary" onClick={() => { const data = collectPerformance(); setPerformanceData(data); window.localStorage.setItem("lumaboard-performance-v1", JSON.stringify(data)); }}>Medir novamente</button></article>
+        <article className="panel experience-tool-card"><Gauge /><div><strong>Desempenho local</strong><span>DOM {performanceData.domInteractiveMs ?? "—"} ms · carga {performanceData.loadMs ?? "—"} ms · heap {performanceData.heapMb ?? "—"} MB</span></div><button className="button secondary" onClick={() => { const data = collectPerformance(); setPerformanceData(data); writeStoredValue("lumaboard-performance-v1", data); }}>Medir novamente</button></article>
       </section>
 
       <section className="install-guides panel"><header><Smartphone /><div><strong>Como instalar</strong><span>Não é necessário baixar uma loja de aplicativos.</span></div></header><div><article><strong>Android</strong><p>Chrome → menu ⋮ → Instalar app ou Adicionar à tela inicial.</p></article><article><strong>Windows</strong><p>Edge ou Chrome → ícone de instalação na barra de endereço.</p></article><article><strong>macOS</strong><p>Safari → Arquivo → Adicionar ao Dock; no Chrome, use Instalar.</p></article><article><strong>iPhone/iPad</strong><p>Safari → Compartilhar → Adicionar à Tela de Início.</p></article></div></section>

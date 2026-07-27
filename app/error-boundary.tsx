@@ -2,6 +2,7 @@
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { writeStoredValue } from "./storage";
 
 export class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -14,7 +15,7 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { error
     try {
       const history = JSON.parse(window.localStorage.getItem("lumaboard-client-errors-v1") ?? "[]") as unknown;
       const list = Array.isArray(history) ? history.slice(-19) : [];
-      window.localStorage.setItem("lumaboard-client-errors-v1", JSON.stringify([...list, { message: error.message, stack: error.stack?.slice(0, 2000), componentStack: info.componentStack?.slice(0, 2000), occurredAt: new Date().toISOString() }]));
+      writeStoredValue("lumaboard-client-errors-v1", [...list, { message: error.message, stack: error.stack?.slice(0, 2000), componentStack: info.componentStack?.slice(0, 2000), occurredAt: new Date().toISOString() }]);
     } catch {
       // Error reporting must never create a second failure.
     }

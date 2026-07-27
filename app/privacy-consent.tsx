@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { writeStoredValue } from "./storage";
 
 export const CONSENT_KEY = "lumaboard-consent-v1";
 export const LEGAL_ACCEPTANCE_KEY = "lumaboard-legal-acceptance-v1";
@@ -39,7 +40,7 @@ function readConsent(): ConsentPreferences | null {
 }
 
 function saveConsent(value: ConsentPreferences) {
-  localStorage.setItem(CONSENT_KEY, JSON.stringify(value));
+  writeStoredValue(CONSENT_KEY, value);
   window.dispatchEvent(new CustomEvent("lumaboard:consent", { detail: value }));
 }
 

@@ -4,6 +4,7 @@ import { Check, Copy, Download, Eye, Heart, Image as ImageIcon, LayoutTemplate, 
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { readDashboardState, writeDashboardState } from "./dashboard-config";
 import { DASHBOARD_TEMPLATES, findTemplates, templateCategories, type DashboardTemplate, type TemplateCategory } from "./dashboard-templates";
+import { writeStoredValue } from "./storage";
 import { BUILTIN_THEME_IDS, BUILTIN_THEMES, MAX_THEME_IMAGE_BYTES, contrastRatio, createThemeBundle, parseThemeBundle, useThemeSystem, type ThemeDensity, type ThemeFont, type ThemeProfile } from "./theme-system";
 
 const FAVORITES_KEY = "lumaboard-template-favorites-v1";
@@ -44,9 +45,18 @@ function TemplatePreview({ template }: { template: DashboardTemplate }) {
   );
 }
 
-export function AppearanceModule({ onToast }: { onToast: (message: string) => void }) {
+export function AppearanceModule({
+  onToast,
+  avatarInitials,
+  onAvatarInitialsChange,
+}: {
+  onToast: (message: string) => void;
+  avatarInitials: string;
+  onAvatarInitialsChange: (value: string) => void;
+}) {
   const { state, profile, persist } = useThemeSystem();
   const [section, setSection] = useState<"themes" | "templates">("themes");
+  const [profileInitials, setProfileInitials] = useState(avatarInitials);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<"all" | TemplateCategory>("all");
   const [favorites, setFavorites] = useState<string[]>(readFavorites);
@@ -140,7 +150,7 @@ export function AppearanceModule({ onToast }: { onToast: (message: string) => vo
   const toggleFavorite = (templateId: string) => {
     const next = favorites.includes(templateId) ? favorites.filter((id) => id !== templateId) : [...favorites, templateId];
     setFavorites(next);
-    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+    writeStoredValue(FAVORITES_KEY, next);
   };
 
   const ratioBackground = contrastRatio(selected.text, selected.background);
@@ -154,6 +164,26 @@ export function AppearanceModule({ onToast }: { onToast: (message: string) => vo
       </header>
 
       <nav className="appearance-tabs" aria-label="Aparência"><button className={section === "themes" ? "active" : ""} onClick={() => setSection("themes")}><Palette /> Temas</button><button className={section === "templates" ? "active" : ""} onClick={() => setSection("templates")}><LayoutTemplate /> Galeria de modelos</button></nav>
+
+      <section className="panel profile-settings-panel">
+        <div>
+          <span className="eyebrow">PERFIL LOCAL</span>
+          <h2>Avatar do cabeçalho</h2>
+          <p>As iniciais ficam salvas apenas neste navegador e entram no backup local.</p>
+        </div>
+        <label>
+          Iniciais
+          <input
+            maxLength={3}
+            value={profileInitials}
+            onChange={(event) => setProfileInitials(event.target.value.toUpperCase())}
+            onBlur={() => onAvatarInitialsChange(profileInitials)}
+          />
+        </label>
+        <button className="avatar profile-preview-avatar" onClick={() => onAvatarInitialsChange(profileInitials)} aria-label="Salvar iniciais do perfil">
+          {profileInitials || "EU"}
+        </button>
+      </section>
 
       {section === "themes" ? <>
         <div className="appearance-grid">

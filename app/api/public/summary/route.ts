@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { APP_USER_AGENT } from "../../../app-version";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,6 +103,14 @@ type PublicSummary = {
     };
   };
   content: {
+    artwork: {
+      title: string;
+      artist: string;
+      date: string | null;
+      url: string;
+      imageUrl: string | null;
+      source: string;
+    } | null;
     book: {
       title: string;
       author: string;
@@ -173,7 +182,7 @@ async function fetchJson(url: string, timeout = 7000): Promise<unknown> {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "LumaBoard/1.6.2 (+https://lumaboard.netlify.app)",
+        "User-Agent": APP_USER_AGENT,
       },
       next: { revalidate: 900 },
     });
@@ -193,7 +202,7 @@ async function fetchText(url: string) {
       signal: controller.signal,
       headers: {
         Accept: "application/rss+xml, application/xml, text/xml, text/plain",
-        "User-Agent": "LumaBoard/1.6.2 (+https://lumaboard.netlify.app)",
+        "User-Agent": APP_USER_AGENT,
       },
       next: { revalidate: 900 },
     });
@@ -707,6 +716,29 @@ async function loadFeaturedBook() {
   };
 }
 
+async function loadArtwork() {
+  const page = Math.max(1, (new Date().getUTCDate() % 12) + 1);
+  const url = new URL("https://api.artic.edu/api/v1/artworks/search");
+  url.searchParams.set("query[term][is_public_domain]", "true");
+  url.searchParams.set("fields", "id,title,artist_display,date_display,image_id");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("page", String(page));
+  const payload = await fetchJson(url.toString());
+  const items = isRecord(payload) && Array.isArray(payload.data) ? payload.data.filter(isRecord) : [];
+  const item = items[0];
+  if (!item) return null;
+  const id = finiteOrNull(item.id);
+  const imageId = stringOrNull(item.image_id);
+  return {
+    title: stringOrNull(item.title) ?? "Obra sem título",
+    artist: stringOrNull(item.artist_display) ?? "Artista não informado",
+    date: stringOrNull(item.date_display),
+    url: id === null ? "https://www.artic.edu/collection" : `https://www.artic.edu/artworks/${id}`,
+    imageUrl: imageId ? `https://www.artic.edu/iiif/2/${imageId}/full/843,/0/default.jpg` : null,
+    source: "Art Institute of Chicago",
+  };
+}
+
 async function loadWikipedia() {
   const topics = ["ciência", "tecnologia", "Brasil", "natureza", "história", "astronomia"];
   const topic = topics[Math.floor(Date.now() / 86_400_000) % topics.length];
@@ -824,6 +856,7 @@ export async function GET(request: NextRequest) {
     coordinatesReady ? loadFlood(latitude, longitude) : Promise.resolve(emptyFlood),
     coordinatesReady ? loadMarine(latitude, longitude) : Promise.resolve(emptyMarine),
     coordinatesReady ? loadSun(latitude, longitude, timezone) : Promise.resolve(emptySun),
+    loadArtwork(),
     loadFeaturedBook(),
     loadWikipedia(),
     loadTv(),
@@ -842,6 +875,7 @@ export async function GET(request: NextRequest) {
     floodResult,
     marineResult,
     sunResult,
+    artworkResult,
     bookResult,
     wikipediaResult,
     tvResult,
@@ -860,6 +894,7 @@ export async function GET(request: NextRequest) {
     "rios",
     "dados marítimos",
     "dados solares",
+    "arte",
     "livros",
     "Wikipédia",
     "programação de TV",
@@ -885,6 +920,7 @@ export async function GET(request: NextRequest) {
       "Open Library",
       "Wikimedia",
       "TVmaze",
+      "Art Institute of Chicago",
     ],
     news: newsResult.status === "fulfilled" ? newsResult.value : [],
     anime: animeResult.status === "fulfilled" ? animeResult.value : { news: [], trending: [] },
@@ -920,6 +956,7 @@ export async function GET(request: NextRequest) {
       sun: sunResult.status === "fulfilled" ? sunResult.value : emptySun,
     },
     content: {
+      artwork: artworkResult.status === "fulfilled" ? artworkResult.value : null,
       book: bookResult.status === "fulfilled" ? bookResult.value : null,
       wikipedia: wikipediaResult.status === "fulfilled" ? wikipediaResult.value : null,
       tv: tvResult.status === "fulfilled" ? tvResult.value : null,

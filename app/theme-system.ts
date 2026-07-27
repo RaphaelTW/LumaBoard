@@ -141,7 +141,7 @@ export function writeThemeState(state: ThemeState): ThemeState {
   const next = normalizeThemeState(state);
   writeStoredValue(THEME_STORAGE_KEY, next);
   if (typeof window !== "undefined") {
-    window.localStorage.setItem("lumaboard-theme", next.activeThemeId === "night" || next.activeThemeId === "oled" ? "night" : "paper");
+    writeStoredValue("lumaboard-theme", next.activeThemeId === "night" || next.activeThemeId === "oled" ? "night" : "paper");
     window.dispatchEvent(new CustomEvent("lumaboard:theme", { detail: next }));
   }
   return next;

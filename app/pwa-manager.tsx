@@ -2,8 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { exportLocalBackup, importLocalBackup, migrateBackup, readStoredValue, safeParseJSON, writeStoredValue } from "./storage";
+import { APP_VERSION } from "./app-version";
 
-export const APP_VERSION = "1.8.1";
+export { APP_VERSION };
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;

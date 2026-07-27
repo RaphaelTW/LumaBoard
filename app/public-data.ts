@@ -102,6 +102,14 @@ export type PublicSummary = {
     };
   };
   content: {
+    artwork: {
+      title: string;
+      artist: string;
+      date: string | null;
+      url: string;
+      imageUrl: string | null;
+      source: string;
+    } | null;
     book: {
       title: string;
       author: string;
@@ -143,6 +151,7 @@ export const DEFAULT_PUBLIC_PLUGIN_IDS = [
   "flood",
   "marine",
   "sun",
+  "art",
   "books",
   "wikipedia",
   "tv",
@@ -151,6 +160,10 @@ export const DEFAULT_PUBLIC_PLUGIN_IDS = [
 const LEGACY_PUBLIC_PLUGIN_IDS = new Set(["air", "rates", "holidays", "news"]);
 const VERSION_13_DEFAULT_PLUGIN_IDS = new Set([
   "air", "rates", "holidays", "news", "economy", "ibge", "earthquakes",
+  "elevation", "flood", "marine", "sun", "books", "wikipedia", "tv",
+]);
+const VERSION_181_DEFAULT_PLUGIN_IDS = new Set([
+  "air", "rates", "holidays", "news", "anime", "economy", "ibge", "earthquakes",
   "elevation", "flood", "marine", "sun", "books", "wikipedia", "tv",
 ]);
 const PUBLIC_PLUGIN_ID_SET = new Set<string>(DEFAULT_PUBLIC_PLUGIN_IDS);
@@ -169,8 +182,11 @@ export function normalizeEnabledPublicPlugins(value: unknown): string[] {
   const isVersionThirteenDefault =
     filtered.length === VERSION_13_DEFAULT_PLUGIN_IDS.size &&
     filtered.every((item) => VERSION_13_DEFAULT_PLUGIN_IDS.has(item));
+  const isVersionOneEightOneDefault =
+    filtered.length === VERSION_181_DEFAULT_PLUGIN_IDS.size &&
+    filtered.every((item) => VERSION_181_DEFAULT_PLUGIN_IDS.has(item));
 
-  return isVersionOneDefault || isVersionThirteenDefault
+  return isVersionOneDefault || isVersionThirteenDefault || isVersionOneEightOneDefault
     ? [...DEFAULT_PUBLIC_PLUGIN_IDS]
     : filtered;
 }
@@ -192,6 +208,7 @@ export const initialPublicSummary: PublicSummary = {
     "Open Library",
     "Wikimedia",
     "TVmaze",
+    "Art Institute of Chicago",
   ],
   news: [],
   anime: { news: [], trending: [] },
@@ -228,7 +245,7 @@ export const initialPublicSummary: PublicSummary = {
       moonIllumination: null,
     },
   },
-  content: { book: null, wikipedia: null, tv: null },
+  content: { artwork: null, book: null, wikipedia: null, tv: null },
   warnings: [],
 };
 

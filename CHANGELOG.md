@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.2] - 2026-07-27
+
+### Melhorado
+
+- Avatar do cabeçalho passa a usar iniciais escolhidas pelo usuário e salvas apenas no navegador.
+- Nova fonte pública sem chave: obra em domínio público do Art Institute of Chicago, selecionada a partir da lista `public-apis/public-apis`.
+- Versão do app centralizada para PWA, Functions e User-Agent das integrações públicas.
+- Escritas locais de preferências, notícias, favoritos, erros, desempenho e consentimento passam pelo gerenciador de armazenamento.
+- Defaults de fontes públicas migrados para ativar a nova fonte de arte sem apagar escolhas personalizadas.
+- Cache PWA e versão instalada atualizados para 1.8.2.
+
+### Validação
+
+- `npm run check` executado com lint, 73 testes e build de produção.
+
 ## [1.8.1] - 2026-07-27
 
 ### Privacidade e transparência

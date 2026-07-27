@@ -9,7 +9,7 @@ const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "
 const netlify = readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
 const globalCss = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 
-describe("deployment configuration v1.8.1", () => {
+describe("deployment configuration v1.8.2", () => {
   it("pins Turbopack and output tracing to the actual project root", () => {
     expect(nextConfig).toContain("fileURLToPath(import.meta.url)");
     expect(nextConfig).toContain("outputFileTracingRoot: projectRoot");
@@ -23,7 +23,7 @@ describe("deployment configuration v1.8.1", () => {
   });
 
   it("does not require Tailwind for the custom CSS design system", () => {
-    expect(packageJson.version).toBe("1.8.1");
+    expect(packageJson.version).toBe("1.8.2");
     expect(packageJson.devDependencies?.tailwindcss).toBeUndefined();
     expect(packageJson.devDependencies?.["@tailwindcss/postcss"]).toBeUndefined();
     expect(globalCss).not.toContain('@import "tailwindcss"');

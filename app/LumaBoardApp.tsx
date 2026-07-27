@@ -115,6 +115,7 @@ import { ExperienceModule } from "./experience-module";
 import { APP_VERSION, usePWA } from "./pwa-manager";
 import { CHANGELOG } from "./changelog-data";
 import { useThemeSystem } from "./theme-system";
+import { readStoredValue, writeStoredValue } from "./storage";
 
 const navItems: Array<{ id: View; label: string; mobileLabel?: string; icon: typeof Grid2X2 }> = [
   { id: "overview", label: "Visão geral", mobileLabel: "Início", icon: Grid2X2 },
@@ -698,9 +699,9 @@ function writeNewsPreferences(label: string, value: NewsPreferences) {
   try {
     const all = JSON.parse(window.localStorage.getItem("lumaboard-news-preferences-v1") ?? "{}") as Record<string, NewsPreferences>;
     all[label] = value;
-    window.localStorage.setItem("lumaboard-news-preferences-v1", JSON.stringify(all));
+    writeStoredValue("lumaboard-news-preferences-v1", all);
   } catch {
-    window.localStorage.setItem("lumaboard-news-preferences-v1", JSON.stringify({ [label]: value }));
+    writeStoredValue("lumaboard-news-preferences-v1", { [label]: value });
   }
 }
 
@@ -781,7 +782,7 @@ function NewsCarousel({
   const updateNewsState = (patch: Partial<NewsState>) => {
     const next = { ...newsState, ...patch };
     setNewsState(next);
-    window.localStorage.setItem("lumaboard-news-state-v1", JSON.stringify(next));
+    writeStoredValue("lumaboard-news-state-v1", next);
   };
 
   const markRead = (id: string) => {
@@ -927,6 +928,7 @@ function PublicDataPanel({
   const flood = summary.environment.flood;
   const marine = summary.environment.marine;
   const sunData = summary.environment.sun;
+  const artwork = summary.content.artwork;
   const book = summary.content.book;
   const wikipedia = summary.content.wikipedia;
   const tv = summary.content.tv;
@@ -950,6 +952,7 @@ function PublicDataPanel({
         {enabled.includes("flood") && <article className="panel public-data-card"><span className="metric-icon"><Droplets /></span><div><span>Rio e vazão estimada</span><strong>{flood.discharge === null ? "Sem rio modelado próximo" : `${formatDecimal(flood.discharge)} m³/s`}</strong><small>{flood.maximum === null ? "Open-Meteo Flood" : `máxima prevista ${formatDecimal(flood.maximum)} m³/s · ${formatPublicDate(flood.date)}`}</small></div></article>}
         {enabled.includes("marine") && <article className="panel public-data-card"><span className="metric-icon"><Waves /></span><div><span>Condição marítima</span><strong>{marine.waveHeightM === null ? "Fora da cobertura marítima" : `Ondas ${formatDecimal(marine.waveHeightM)} m`}</strong><small>{marine.seaTemperatureC === null ? "Disponível em coordenadas costeiras" : `mar ${formatDecimal(marine.seaTemperatureC)} °C · corrente ${formatDecimal(marine.currentVelocityKmh)} km/h`}</small></div></article>}
         {enabled.includes("sun") && <article className="panel public-data-card"><span className="metric-icon"><Sunrise /></span><div><span>Sol e Lua</span><strong>{formatPublicTime(sunData.sunrise)} → {formatPublicTime(sunData.sunset)}</strong><small>{formatDayLength(sunData.dayLengthSeconds)} de luz · {formatMoonPhase(sunData.moonPhase)}{sunData.moonIllumination === null ? "" : ` ${formatDecimal(sunData.moonIllumination)}%`} · <a href="https://sunrise-sunset.org/" target="_blank" rel="noreferrer">Sunrise-Sunset.org</a></small></div></article>}
+        {enabled.includes("art") && <article className="panel public-data-card news-card"><span className="metric-icon"><Palette /></span><div><span>Obra pública do dia</span><strong>{artwork?.title ?? "Obra indisponível"}</strong>{artwork && <a href={artwork.url} target="_blank" rel="noreferrer">{artwork.artist}{artwork.date ? ` · ${artwork.date}` : ""} · {artwork.source} <ExternalLink /></a>}</div></article>}
         {enabled.includes("books") && <article className="panel public-data-card news-card"><span className="metric-icon"><BookOpen /></span><div><span>Livro em destaque</span><strong>{book?.title ?? "Livro indisponível"}</strong>{book && <a href={book.url} target="_blank" rel="noreferrer">{book.author}{book.year ? ` · ${book.year}` : ""} <ExternalLink /></a>}</div></article>}
         {enabled.includes("wikipedia") && <article className="panel public-data-card news-card"><span className="metric-icon"><Code2 /></span><div><span>Wikipédia</span><strong>{wikipedia?.title ?? "Artigo indisponível"}</strong>{wikipedia && <a href={wikipedia.url} target="_blank" rel="noreferrer">{wikipedia.description || wikipedia.excerpt || "Abrir artigo"} <ExternalLink /></a>}</div></article>}
         {enabled.includes("tv") && <article className="panel public-data-card news-card"><span className="metric-icon"><Tv /></span><div><span>TV e streaming hoje</span><strong>{tv?.show ?? "Sem programação brasileira encontrada"}</strong>{tv && <a href={tv.url} target="_blank" rel="noreferrer">{tv.episode} · {tv.time ?? "horário variável"} · {tv.network} <ExternalLink /></a>}</div></article>}
@@ -998,6 +1001,7 @@ export function LumaBoardApp() {
   );
   const [sharedConfig, setSharedConfig] = useState<SharedDisplayConfig | null>(null);
   const [automationState, setAutomationState] = useState(defaultAutomationState);
+  const [avatarInitials, setAvatarInitials] = useState("RS");
   const rainRule =
     automationState.rules.find((rule) => rule.id === RAIN_RULE_ID) ??
     defaultAutomationState.rules[0];
@@ -1038,6 +1042,12 @@ export function LumaBoardApp() {
 
   useEffect(() => {
     queueMicrotask(() => {
+      const profile = readStoredValue(
+        "lumaboard-user-profile-v1",
+        (value): value is { initials: string } => typeof value === "object" && value !== null && "initials" in value && typeof (value as { initials?: unknown }).initials === "string",
+        { initials: "RS" },
+      );
+      setAvatarInitials(profile.initials.replace(/[^a-zA-ZÀ-ÿ0-9]/g, "").slice(0, 3).toUpperCase() || "RS");
       setAutomationState(readAutomationState());
       setDashboardState(readDashboardState());
       setMusicCache(readMusicCache());
@@ -1101,12 +1111,19 @@ export function LumaBoardApp() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("lumaboard-last-view-v1", activeView);
+    writeStoredValue("lumaboard-last-view-v1", activeView);
     const url = new URL(window.location.href);
     if (activeView === "overview") url.searchParams.delete("view");
     else url.searchParams.set("view", activeView);
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }, [activeView]);
+
+  const updateAvatarInitials = useCallback((value: string) => {
+    const next = value.replace(/[^a-zA-ZÀ-ÿ0-9]/g, "").slice(0, 3).toUpperCase() || "EU";
+    setAvatarInitials(next);
+    writeStoredValue("lumaboard-user-profile-v1", { initials: next });
+    setToast("Iniciais do perfil salvas neste navegador.");
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -1159,7 +1176,7 @@ export function LumaBoardApp() {
       ...readAutomationState(),
       history: [],
     };
-    window.localStorage.setItem("lumaboard-rules", JSON.stringify(next));
+    writeStoredValue("lumaboard-rules", next);
     setAutomationState(next);
     setToast("Histórico de alertas limpo.");
   };
@@ -1178,7 +1195,7 @@ export function LumaBoardApp() {
       ),
     };
     const next = recordRainAlert(evaluated, rule, evaluation);
-    window.localStorage.setItem("lumaboard-rules", JSON.stringify(next));
+    writeStoredValue("lumaboard-rules", next);
     queueMicrotask(() => setAutomationState(next));
     if (!evaluation.shouldAlert || evaluation.maxProbability === null) return;
     queueMicrotask(() => {
@@ -1314,9 +1331,9 @@ export function LumaBoardApp() {
             <button className="icon-button" aria-label="Configurações" onClick={() => setActiveView("appearance")}>
               <Settings />
             </button>
-            <div className="avatar" aria-label="Perfil de Raphael">
-              RS
-            </div>
+            <button className="avatar" aria-label={`Perfil local: ${avatarInitials}`} onClick={() => setActiveView("appearance")}>
+              {avatarInitials}
+            </button>
           </div>
         </header>
 
@@ -1531,7 +1548,7 @@ export function LumaBoardApp() {
             />
           )}
           {activeView === "music" && <MusicModule onToast={setToast} />}
-          {activeView === "appearance" && <AppearanceModule onToast={setToast} />}
+          {activeView === "appearance" && <AppearanceModule onToast={setToast} avatarInitials={avatarInitials} onAvatarInitialsChange={updateAvatarInitials} />}
           {activeView === "experience" && <ExperienceModule summary={publicSummary} publicStatus={publicDataStatus} weatherStatus={weatherStatus} onToast={setToast} />}
           {activeView === "diagnostics" && (
             <DiagnosticsModule

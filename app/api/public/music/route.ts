@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { APP_USER_AGENT } from "../../../app-version";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ async function fetchJson(url: string, timeout = 9000): Promise<unknown> {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "LumaBoard/1.6.2 (+https://lumaboard.netlify.app)",
+        "User-Agent": APP_USER_AGENT,
       },
       next: { revalidate: 3600 },
     });
