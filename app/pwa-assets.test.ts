@@ -21,10 +21,18 @@ describe("PWA assets", () => {
 
   it("keeps updates user-controlled", () => {
     const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
-    const installBlock = worker.slice(worker.indexOf('addEventListener("install"'), worker.indexOf('addEventListener("activate"'));
+    const installStart = worker.indexOf('addEventListener("install"');
+    const activateStart = worker.indexOf('addEventListener("activate"');
+    const installBlock = worker.slice(installStart, activateStart);
     expect(installBlock).not.toContain("skipWaiting");
     expect(worker).toContain('event.data?.type === "SKIP_WAITING"');
-    expect(worker).toContain("cachePageWithAssets");
+    expect(worker).toContain("cachePage");
+  });
+
+  it("does not parse generated Next.js HTML to discover static assets", () => {
+    const worker = readFileSync(resolve(process.cwd(), "public/sw.js"), "utf8");
+    expect(worker).not.toContain("matchAll(/(?:src|href)=");
+    expect(worker).toContain('url.pathname.startsWith("/_next/static/")');
   });
 
   it("returns notification clicks to the agenda", () => {

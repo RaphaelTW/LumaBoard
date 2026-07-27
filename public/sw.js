@@ -1,5 +1,5 @@
-/* LumaBoard v1.8.2 service worker */
-const VERSION = "1.8.2";
+/* LumaBoard v1.8.3 service worker */
+const VERSION = "1.8.3";
 const STATIC_CACHE = `lumaboard-static-${VERSION}`;
 const PAGE_CACHE = `lumaboard-pages-${VERSION}`;
 const API_CACHE = `lumaboard-api-${VERSION}`;
@@ -34,25 +34,19 @@ async function fetchWithTimeout(request, timeoutMs = 7000) {
   }
 }
 
-async function cachePageWithAssets(pathname) {
+async function cachePage(pathname) {
   const request = new Request(pathname, { cache: "reload" });
   const response = await fetch(request);
   if (!response.ok) return;
   const pageCache = await caches.open(PAGE_CACHE);
   await pageCache.put(request, response.clone());
-
-  const html = await response.text();
-  const assetUrls = Array.from(html.matchAll(/(?:src|href)=["'](\/_next\/static\/[^"']+)["']/g), (match) => match[1]);
-  if (assetUrls.length === 0) return;
-  const staticCache = await caches.open(STATIC_CACHE);
-  await Promise.allSettled(Array.from(new Set(assetUrls)).map((url) => staticCache.add(new Request(url, { cache: "reload" }))));
 }
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const staticCache = await caches.open(STATIC_CACHE);
     await Promise.allSettled(STATIC_ASSETS.map((url) => staticCache.add(new Request(url, { cache: "reload" }))));
-    await Promise.allSettled(APP_PAGES.map(cachePageWithAssets));
+    await Promise.allSettled(APP_PAGES.map(cachePage));
     await notifyClients({ type: "CACHE_READY", version: VERSION });
   })());
 });

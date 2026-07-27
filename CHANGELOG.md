@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.3] - 2026-07-27
+
+### Melhorado
+
+- `LumaBoardApp.tsx` reduzido com extração do painel de dados públicos e da busca global para componentes próprios.
+- Carrossel de notícias e preferências locais movidos para `public-data-panel.tsx`.
+- Fontes públicas de conteúdo separadas em `app/api/public/summary/sources/content.ts`.
+- Service worker deixa de parsear HTML gerado pelo Next.js para descobrir assets `_next/static`.
+- Testes comportamentais adicionados para a fonte do Art Institute of Chicago e para a estratégia de cache do service worker.
+- Cache PWA e versão instalada atualizados para 1.8.3.
+
+### Validação
+
+- `npm run check` executado com lint, testes e build de produção.
+
 ## [1.8.2] - 2026-07-27
 
 ### Melhorado

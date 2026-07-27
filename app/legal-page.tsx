@@ -5,7 +5,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
   return <main className="legal-page">
     <div className="legal-shell">
       <Link className="legal-back" href="/">← Voltar ao LumaBoard</Link>
-      <span className="eyebrow">LumaBoard v1.8.2</span>
+      <span className="eyebrow">LumaBoard v1.8.3</span>
       <h1>{title}</h1>
       <p className="legal-updated">Última atualização: {updated}</p>
       <div className="legal-content">{children}</div>
