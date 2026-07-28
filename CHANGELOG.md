@@ -1,4 +1,18 @@
 # Changelog
+## [1.8.9] - 2026-07-28
+
+### Fixed
+
+- O botão **Atualizar agora** no desktop passa a usar o service worker em espera guardado pelo gerenciador PWA, evitando clique sem efeito quando `registration.waiting` ainda não estava sincronizado.
+- A atualização PWA fica centralizada no banner global, removendo a duplicação visual do aviso no painel rápido de notificações do desktop.
+- O runner de testes ignora pacotes antigos em `dist/**`, impedindo que releases empacotadas executem testes obsoletos junto com a árvore atual.
+- Testes de segurança ajustados para validar separadamente o bloqueio de dashboards grandes e o round-trip de dashboards normalizados dentro do limite.
+- Mock de resposta pública atualizado para cobrir a camada de leitura limitada por headers sem quebrar a fonte do Art Institute.
+
+### Validation
+
+- `npm run security:scan`, `npm run lint`, `npm test`, `npm run build` e `npm audit --omit=dev` executados com sucesso.
+
 ## [1.8.8] - 2026-07-28
 
 ### Security

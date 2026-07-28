@@ -9,14 +9,22 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.8.8 — Security Boundaries & Abuse Protection** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, oito temas oficiais, temas personalizados, 16 modelos locais, preferências, favoritos, iniciais do avatar e os últimos dados públicos permitidos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.8.9 — PWA Update Reliability** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, oito temas oficiais, temas personalizados, 16 modelos locais, preferências, favoritos, iniciais do avatar e os últimos dados públicos permitidos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
 
 
-## Privacidade, termos e armazenamento local na v1.8.8
+## Privacidade, termos e armazenamento local na v1.8.9
 
 A aplicação inclui páginas em `/termos`, `/privacidade` e `/cookies`, além de um painel de escolhas salvo apenas no navegador. Atualmente não existem anúncios, cookies publicitários ou ferramenta analítica externa. Quando **Conteúdo externo** está desativado, novas chamadas opcionais para clima, notícias, música, arte, livros, TV, anime e pesquisas públicas são bloqueadas antes da rede; dados já salvos localmente continuam disponíveis quando houver cache. Qualquer futura monetização deverá atualizar os documentos e solicitar nova escolha antes de carregar tecnologias opcionais. Os textos são informativos e devem ser revisados por profissional jurídico antes de uso comercial.
+
+## Destaques da versão 1.8.9
+
+- botão **Atualizar agora** no desktop usa o service worker em espera rastreado pelo gerenciador PWA;
+- aviso de atualização centralizado no banner global para não aparecer duplicado no desktop;
+- testes ignoram `dist/**` para não executar releases empacotadas antigas;
+- regressões de segurança ajustadas para dashboards acima do limite e respostas públicas com headers;
+- validação aprovada com security scan, lint, testes, build e audit de produção.
 
 ## Destaques da versão 1.8.8
 

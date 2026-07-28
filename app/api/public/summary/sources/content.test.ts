@@ -9,6 +9,17 @@ describe("public summary content sources", () => {
   it("normalizes an Art Institute public-domain artwork without requiring an API key", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
+      headers: new Headers({ "content-type": "application/json" }),
+      body: null,
+      text: async () => JSON.stringify({
+        data: [{
+          id: 123,
+          title: "The Bedroom",
+          artist_display: "Vincent van Gogh",
+          date_display: "1889",
+          image_id: "abc123",
+        }],
+      }),
       json: async () => ({
         data: [{
           id: 123,
@@ -23,10 +34,9 @@ describe("public summary content sources", () => {
 
     const artwork = await loadArtwork();
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("api.artic.edu/api/v1/artworks/search"),
-      expect.objectContaining({ headers: expect.objectContaining({ Accept: "application/json" }) }),
-    );
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain("api.artic.edu/api/v1/artworks/search");
+    expect(options).toMatchObject({ headers: { Accept: "application/json" } });
     expect(artwork).toEqual({
       title: "The Bedroom",
       artist: "Vincent van Gogh",

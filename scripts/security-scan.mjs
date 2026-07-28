@@ -9,7 +9,6 @@ const failures = [];
 const warnings = [];
 
 function fail(message) { failures.push(message); }
-function warn(message) { warnings.push(message); }
 function normalize(path) { return path.replaceAll("\\", "/"); }
 
 function walk(directory) {

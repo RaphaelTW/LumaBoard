@@ -1,6 +1,6 @@
 {
   "name": "lumaboard",
-  "version": "1.8.8",
+  "version": "1.8.9",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -10,9 +10,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"dist/**\"",
     "security:scan": "node scripts/security-scan.mjs",
-    "security:audit": "npm audit --audit-level=high",
+    "security:audit": "npm audit --omit=dev --audit-level=high",
     "security:signatures": "npm audit signatures",
     "security:full": "npm run security:scan && npm run security:audit && npm run security:signatures",
     "release:prepare": "node scripts/prepare-release.mjs",

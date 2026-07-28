@@ -1,5 +1,5 @@
-/* LumaBoard v1.8.8 service worker */
-const VERSION = "1.8.8";
+/* LumaBoard v1.8.9 service worker */
+const VERSION = "1.8.9";
 const STATIC_CACHE = `lumaboard-static-${VERSION}`;
 const PAGE_CACHE = `lumaboard-pages-${VERSION}`;
 const API_CACHE = `lumaboard-api-${VERSION}`;
@@ -75,7 +75,6 @@ async function cachePage(pathname) {
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
-    const staticCache = await caches.open(STATIC_CACHE);
     await Promise.allSettled(STATIC_ASSETS.map(async (url) => {
       const request = new Request(url, { cache: "reload", credentials: "same-origin", redirect: "error" });
       const response = await fetch(request);

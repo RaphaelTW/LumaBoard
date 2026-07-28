@@ -16,7 +16,7 @@ function basicTheme(imageData: string | null) {
   return { id: "custom", name: "Teste", mode: "custom", accent: "#35513a", surface: "#ffffff", text: "#111111", muted: "#555555", border: "#cccccc", backgroundType: "image", background: "#ffffff", gradientEnd: "#eeeeee", imageData, font: "system", fontScale: 1, radius: 8, density: "comfortable", shadowStrength: 0.5, autoContrast: true };
 }
 
-describe("security boundaries v1.8.8", () => {
+describe("security boundaries v1.8.9", () => {
   it("rejects unsafe external URLs and private destinations", () => {
     expect(safeExternalUrl("javascript:alert(1)")).toBe("");
     expect(safeExternalUrl("http://example.com")).toBe("");
@@ -48,7 +48,20 @@ describe("security boundaries v1.8.8", () => {
     const normalized = normalizeDashboardState(raw);
     expect(normalized.layouts).toHaveLength(32);
     expect(normalized.layouts[0].widgets).toHaveLength(48);
-    expect(decodeDashboardState(encodeDashboardState(normalized))?.layouts).toHaveLength(32);
+    expect(() => encodeDashboardState(normalized)).toThrow("Configuração grande demais");
+
+    const compact = normalizeDashboardState({
+      ...raw,
+      layouts: Array.from({ length: 80 }, (_, index) => ({
+        id: `layout-${index}`,
+        name: `Painel ${index}`,
+        columns: 3,
+        gap: 14,
+        background: "paper",
+        widgets: [{ id: "clock", type: "clock", title: "Relógio", enabled: true, colSpan: 1, rowSpan: 1, showHeader: true, bordered: true, fontScale: 1, opacity: 1, background: "surface" }],
+      })),
+    });
+    expect(decodeDashboardState(encodeDashboardState(compact))?.layouts).toHaveLength(32);
   });
 
   it("normalizes automation imports to the single supported rule", () => {
@@ -68,7 +81,7 @@ describe("security boundaries v1.8.8", () => {
   });
 
   it("ships production CSP, bounded service worker and supply-chain gates", () => {
-    expect(packageJson.version).toBe("1.8.8");
+    expect(packageJson.version).toBe("1.8.9");
     expect(netlify).not.toContain("unsafe-eval");
     for (const source of [nextConfig, netlify]) {
       expect(source).toContain("object-src 'none'");

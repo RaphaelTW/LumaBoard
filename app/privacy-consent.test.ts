@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 const root = process.cwd();
-describe("privacy and legal notice v1.8.8", () => {
+describe("privacy and legal notice v1.8.9", () => {
   it("publishes the three legal pages", () => {
     for (const file of ["app/termos/page.tsx", "app/privacidade/page.tsx", "app/cookies/page.tsx"]) expect(fs.existsSync(path.join(root, file))).toBe(true);
   });

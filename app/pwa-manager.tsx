@@ -27,7 +27,7 @@ type PWAContextValue = {
   statusText: string;
   hasUpdateBackup: boolean;
   install: () => Promise<boolean>;
-  applyUpdate: () => void;
+  applyUpdate: () => Promise<void>;
   checkForUpdate: () => Promise<void>;
   syncNow: () => void;
   setStartInDisplay: (value: boolean) => void;
@@ -77,6 +77,7 @@ export function PWAProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<PWASettings>(fallbackSettings);
   const [hasUpdateBackup, setHasUpdateBackup] = useState(false);
   const reloadingRef = useRef(false);
+  const waitingWorkerRef = useRef<ServiceWorker | null>(null);
 
   const persistSettings = useCallback((patch: Partial<PWASettings>) => {
     setSettings((current) => {
@@ -137,13 +138,19 @@ export function PWAProvider({ children }: { children: ReactNode }) {
     const watch = (worker: ServiceWorker | null) => {
       if (!worker) return;
       worker.addEventListener("statechange", () => {
-        if (worker.state === "installed" && navigator.serviceWorker.controller) setUpdateAvailable(true);
+        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+          waitingWorkerRef.current = worker;
+          setUpdateAvailable(true);
+        }
       });
     };
     navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).then((next) => {
       if (!active) return;
       setRegistration(next);
-      if (next.waiting) setUpdateAvailable(true);
+      if (next.waiting) {
+        waitingWorkerRef.current = next.waiting;
+        setUpdateAvailable(true);
+      }
       next.addEventListener("updatefound", () => watch(next.installing));
       return next.update();
     }).catch(() => undefined);
@@ -224,9 +231,18 @@ export function PWAProvider({ children }: { children: ReactNode }) {
     setHasUpdateBackup(false);
   }, []);
 
-  const applyUpdate = useCallback(() => {
-    const worker = registration?.waiting;
-    if (!worker) return;
+  const applyUpdate = useCallback(async () => {
+    if (!registration) {
+      await navigator.serviceWorker.ready.catch(() => null);
+    }
+    const activeRegistration = registration ?? await navigator.serviceWorker.getRegistration("/");
+    if (!activeRegistration) return;
+    await activeRegistration.update().catch(() => undefined);
+    const worker = waitingWorkerRef.current ?? activeRegistration.waiting;
+    if (!worker) {
+      setUpdateAvailable(false);
+      return;
+    }
     createSafetySnapshot();
     worker.postMessage({ type: "SKIP_WAITING" });
   }, [createSafetySnapshot, registration]);

@@ -1,4 +1,4 @@
-# Protocolo de dispositivos do LumaBoard v1.8.8
+# Protocolo de dispositivos do LumaBoard v1.8.9
 
 O LumaBoard funciona como uma PWA local-first. Não há conta, pareamento em nuvem, banco de dados, servidor de sincronização ou canal real entre dispositivos. Cada navegador mantém seu próprio `localStorage`, Cache Storage e permissões.
 
@@ -28,7 +28,7 @@ Chamadas iniciadas manualmente, como pesquisar uma cidade ou atualizar música, 
 
 ## PWA, cache e atualização
 
-O service worker guarda páginas e assets necessários para melhorar o uso offline. O cache da versão 1.8.8 substitui caches antigos do LumaBoard durante a ativação. Páginas legais e telas principais devem permanecer disponíveis quando já armazenadas, mas respostas de APIs externas podem expirar, falhar ou ficar ausentes conforme conexão e consentimento.
+O service worker guarda páginas e assets necessários para melhorar o uso offline. O cache da versão 1.8.9 substitui caches antigos do LumaBoard durante a ativação. Páginas legais e telas principais devem permanecer disponíveis quando já armazenadas, mas respostas de APIs externas podem expirar, falhar ou ficar ausentes conforme conexão e consentimento.
 
 Quando uma nova versão do service worker é instalada, o app exibe aviso de atualização e pode limpar caches de runtime sem apagar dados pessoais do `localStorage`.
 

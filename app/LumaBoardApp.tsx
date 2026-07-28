@@ -643,7 +643,6 @@ export function LumaBoardApp() {
   const notificationCount =
     localWidgets.unreadNotificationCount +
     localWidgets.overdueTasks.length +
-    (pwa.updateAvailable ? 1 : 0) +
     (publicDataStatus === "error" ? 1 : 0) +
     (weatherStatus === "error" ? 1 : 0) +
     (!pwa.online ? 1 : 0);
@@ -812,7 +811,7 @@ export function LumaBoardApp() {
             notificationCount={notificationCount}
             unreadInbox={localWidgets.notificationInbox.filter((item) => !item.readAt)}
             overdueCount={localWidgets.overdueTasks.length}
-            updateAvailable={pwa.updateAvailable}
+            updateAvailable={false}
             publicDataError={publicDataStatus === "error"}
             weatherError={weatherStatus === "error"}
             online={pwa.online}
@@ -830,7 +829,7 @@ export function LumaBoardApp() {
           />
         )}
 
-        {pwa.updateAvailable && <div className="global-update-banner"><CloudDownload /><span><strong>Atualização disponível</strong> Uma cópia local será criada antes de recarregar.</span><button onClick={pwa.applyUpdate}>Atualizar agora</button></div>}
+        {pwa.updateAvailable && <div className="global-update-banner"><CloudDownload /><span><strong>Atualização disponível</strong> Uma cópia local será criada antes de recarregar.</span><button onClick={() => void pwa.applyUpdate()}>Atualizar agora</button></div>}
         <main id="conteudo" className={`dashboard ${activeView !== "overview" ? "module-dashboard" : ""}`}>
           <div hidden={activeView !== "overview"}>
           <OverviewModule
