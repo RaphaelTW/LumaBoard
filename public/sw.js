@@ -1,5 +1,5 @@
-/* LumaBoard v1.8.6 service worker */
-const VERSION = "1.8.6";
+/* LumaBoard v1.8.7 service worker */
+const VERSION = "1.8.7";
 const STATIC_CACHE = `lumaboard-static-${VERSION}`;
 const PAGE_CACHE = `lumaboard-pages-${VERSION}`;
 const API_CACHE = `lumaboard-api-${VERSION}`;
@@ -117,7 +117,8 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  const candidateUrl = new URL(event.notification.data?.url || "/", self.location.origin);
+  const targetUrl = candidateUrl.origin === self.location.origin ? candidateUrl.href : self.location.origin;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
       const existing = clients.find((client) => client.url.startsWith(self.location.origin));

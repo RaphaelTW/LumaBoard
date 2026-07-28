@@ -9,7 +9,7 @@ const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "
 const netlify = readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
 const globalCss = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 
-describe("deployment configuration v1.8.6", () => {
+describe("deployment configuration v1.8.7", () => {
   it("pins Turbopack and output tracing to the actual project root", () => {
     expect(nextConfig).toContain("fileURLToPath(import.meta.url)");
     expect(nextConfig).toContain("outputFileTracingRoot: projectRoot");
@@ -22,8 +22,19 @@ describe("deployment configuration v1.8.6", () => {
     expect(netlify).toContain('NETLIFY_NEXT_SKEW_PROTECTION = "true"');
   });
 
+  it("ships baseline browser security headers across Next and Netlify", () => {
+    for (const source of [nextConfig, netlify]) {
+      expect(source).toContain("Content-Security-Policy");
+      expect(source).toContain("Cross-Origin-Opener-Policy");
+      expect(source).toContain("Permissions-Policy");
+      expect(source).toContain("X-Content-Type-Options");
+      expect(source).toContain("frame-ancestors 'self'");
+    }
+    expect(nextConfig).toContain("poweredByHeader: false");
+  });
+
   it("does not require Tailwind for the custom CSS design system", () => {
-    expect(packageJson.version).toBe("1.8.6");
+    expect(packageJson.version).toBe("1.8.7");
     expect(packageJson.devDependencies?.tailwindcss).toBeUndefined();
     expect(packageJson.devDependencies?.["@tailwindcss/postcss"]).toBeUndefined();
     expect(globalCss).not.toContain('@import "tailwindcss"');

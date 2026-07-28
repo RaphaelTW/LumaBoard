@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.7] - 2026-07-28
+
+### Segurança
+
+- Next.js atualizado para 16.2.12 para corrigir advisories de App Router, Server Actions, SSRF, cache confusion e Image Optimization.
+- Vitest, Vite e dependências transitivas vulneráveis atualizadas ou fixadas por `overrides`, incluindo `postcss`, `sharp`, `@babel/core` e `js-yaml`.
+- Headers de segurança adicionados no Next.js e no Netlify: Content-Security-Policy, Cross-Origin-Opener-Policy, Permissions-Policy, X-Content-Type-Options, X-Frame-Options, X-Robots-Tag e remoção do `X-Powered-By`.
+- Service worker endurecido para impedir navegação externa a partir de dados malformados em cliques de notificação.
+- Teste de deploy ampliado para proteger a presença dos headers de segurança.
+
+### Validação
+
+- `npm run lint`, `npm test`, `npm run build` e `npm audit --omit=dev` executados com sucesso.
+
 ## [1.8.6] - 2026-07-28
 
 ### Corrigido
