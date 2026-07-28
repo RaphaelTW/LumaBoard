@@ -35,6 +35,14 @@ A aplicação inclui páginas em `/termos`, `/privacidade` e `/cookies`, além d
 - guardrails de teste atualizados para acompanhar a modularização;
 - cache PWA atualizado para distribuir a versão 1.8.5.
 
+## Destaques da versão 1.8.4
+
+- shell principal modularizado com sidebar, topbar e notificações rápidas extraídas;
+- testes de UI por renderização para componentes do app shell;
+- painel de dados públicos validado por teste de renderização;
+- script `release:prepare` criado para atualizar versões de forma consistente;
+- cache PWA atualizado para distribuir a versão 1.8.4.
+
 ## Destaques da versão 1.8.3
 
 - painel de dados públicos e busca global extraídos do shell principal;
@@ -54,6 +62,14 @@ A aplicação inclui páginas em `/termos`, `/privacidade` e `/cookies`, além d
 - cache PWA atualizado para distribuir a versão 1.8.2.
 
 ## Destaques da versão 1.8.1
+
+- páginas de Termos de Uso, Aviso de Privacidade e Cookies/Armazenamento Local;
+- banner de escolhas locais com categorias necessárias, preferências e conteúdo externo;
+- publicidade e estatísticas externas desativadas até nova escolha;
+- botão permanente para revisar preferências;
+- consentimento versionado e incluído no backup local.
+
+## Destaques da versão 1.8.0
 
 - oito temas oficiais: Papel, Noturno, OLED, E-paper, Oceano, Floresta, Pôr do sol e Lavanda;
 - editor avançado de cores, tipografia, densidade, cantos, sombras e contraste;

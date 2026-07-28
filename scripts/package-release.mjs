@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { cp, readdir, stat } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -11,6 +11,7 @@ const version = packageJson.version;
 const dist = resolve(root, "dist");
 const staging = resolve(dist, `LumaBoard-v${version}`);
 const zipPath = resolve(dist, `LumaBoard-v${version}.zip`);
+const checksumPath = resolve(dist, `LumaBoard-v${version}.sha256`);
 
 const forbiddenNames = new Set([
   ".git",
@@ -101,6 +102,9 @@ await copyClean(root, staging);
 await validatePackage(staging);
 zipStaging();
 const archive = await stat(zipPath);
+const checksum = await sha256(zipPath);
+writeFileSync(checksumPath, `${checksum}  ${basename(zipPath)}\n`);
 console.log(`ZIP: ${zipPath}`);
-console.log(`SHA-256: ${await sha256(zipPath)}`);
+console.log(`SHA-256: ${checksum}`);
+console.log(`Checksum: ${checksumPath}`);
 console.log(`Tamanho: ${archive.size} bytes`);

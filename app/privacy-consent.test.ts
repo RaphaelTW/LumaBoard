@@ -19,6 +19,15 @@ describe("privacy and legal notice v1.8.6", () => {
     expect(source).toContain("lumaboard:open-privacy");
   });
 
+  it("records an optional legal acknowledgement without making usage mandatory", () => {
+    const source = fs.readFileSync(path.join(root, "app/privacy-consent.tsx"), "utf8");
+    const preferences = fs.readFileSync(path.join(root, "app/privacy-preferences.ts"), "utf8");
+    expect(source).toContain("Li e estou ciente");
+    expect(preferences).toContain("lumaboard-legal-acceptance-v1");
+    expect(source).toContain("acknowledgedAt");
+    expect(source).not.toContain("Aceito os termos");
+  });
+
   it("blocks optional external calls before the network layer when disabled", () => {
     const preferences = fs.readFileSync(path.join(root, "app/privacy-preferences.ts"), "utf8");
     const publicData = fs.readFileSync(path.join(root, "app/public-data.ts"), "utf8");

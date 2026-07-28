@@ -16,6 +16,12 @@ export type ConsentPreferences = {
   updatedAt: string;
 };
 
+export type LegalAcceptance = {
+  termsVersion: string;
+  privacyVersion: string;
+  acknowledgedAt: string;
+};
+
 export const defaultConsentPreferences: ConsentPreferences = {
   version: PRIVACY_VERSION,
   necessary: true,

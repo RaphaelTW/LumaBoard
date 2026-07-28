@@ -8,7 +8,7 @@ const experience = readFileSync(new URL("./experience-module.tsx", import.meta.u
 const verifier = readFileSync(new URL("../scripts/verify-release.ps1", import.meta.url), "utf8");
 const packageRelease = readFileSync(new URL("../scripts/package-release.mjs", import.meta.url), "utf8");
 
-describe("quality gate v1.8.1", () => {
+describe("release quality gate", () => {
   it("does not mirror derived theme or device state through synchronous effects", () => {
     expect(appearance).not.toContain("useEffect(() => setSelectedId");
     expect(modules).not.toContain("setRefreshMinutes(selected.interval)");
@@ -38,5 +38,7 @@ describe("quality gate v1.8.1", () => {
     expect(packageRelease).toContain('"tsconfig.tsbuildinfo"');
     expect(packageRelease).toContain("Artefatos proibidos no pacote");
     expect(packageRelease).toContain("SHA-256");
+    expect(packageRelease).toContain(".sha256");
+    expect(packageRelease).toContain("writeFileSync(checksumPath");
   });
 });

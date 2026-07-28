@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import {
   CONSENT_KEY,
   PRIVACY_VERSION,
+  LEGAL_ACCEPTANCE_KEY,
   defaultConsentPreferences as defaults,
   readConsentPreferences,
+  type LegalAcceptance,
   type ConsentPreferences,
 } from "./privacy-preferences";
 import { writeStoredValue } from "./storage";
@@ -18,6 +20,16 @@ function readConsent(): ConsentPreferences | null {
 function saveConsent(value: ConsentPreferences) {
   writeStoredValue(CONSENT_KEY, value);
   window.dispatchEvent(new CustomEvent("lumaboard:consent", { detail: value }));
+}
+
+function acknowledgeLegalNotice() {
+  const acknowledgement: LegalAcceptance = {
+    termsVersion: PRIVACY_VERSION,
+    privacyVersion: PRIVACY_VERSION,
+    acknowledgedAt: new Date().toISOString(),
+  };
+  writeStoredValue(LEGAL_ACCEPTANCE_KEY, acknowledgement);
+  window.dispatchEvent(new CustomEvent("lumaboard:legal-acknowledged", { detail: acknowledgement }));
 }
 
 export function PrivacyConsent() {
@@ -72,6 +84,7 @@ export function PrivacyConsent() {
           </nav>
           <div className="privacy-actions">
             <button className="button secondary" type="button" onClick={() => setCustomize(!customize)}>{customize ? "Voltar" : "Personalizar"}</button>
+            <button className="button secondary" type="button" onClick={acknowledgeLegalNotice}>Li e estou ciente</button>
             <button className="button secondary" type="button" onClick={() => persist({ ...defaults, preferences: false, externalContent: false })}>Usar somente necessários</button>
             <button className="button primary" type="button" onClick={() => persist(preferences)}>Salvar escolhas</button>
           </div>
