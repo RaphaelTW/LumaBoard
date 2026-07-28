@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hasExternalContentConsent, useExternalContentConsent } from "./privacy-preferences";
-import { isRecord, readStoredValue, writeStoredValue } from "./storage";
+import { isRecord, readStoredValue, safeParseJSON, writeStoredValue } from "./storage";
+import { fetchJsonWithPolicy } from "./client-fetch";
 
 const PUBLIC_DATA_KEY = "lumaboard-public-data-v2";
 const DEFAULT_REFRESH_MINUTES = 15;
@@ -299,26 +300,16 @@ async function fetchSummary(
 ) {
   const url = new URL("/api/public/summary", window.location.origin);
   if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    url.searchParams.set("lat", latitude.toFixed(4));
-    url.searchParams.set("lon", longitude.toFixed(4));
+    url.searchParams.set("lat", latitude.toFixed(2));
+    url.searchParams.set("lon", longitude.toFixed(2));
   }
   if (city.trim()) url.searchParams.set("city", city.trim());
   if (stateCode.trim()) url.searchParams.set("state", stateCode.trim().toUpperCase());
   if (timezone.trim()) url.searchParams.set("tz", timezone.trim());
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 25000);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload: unknown = await response.json();
-    if (!isPublicSummary(payload)) throw new Error("Resumo público inválido");
-    return payload;
-  } finally {
-    window.clearTimeout(timer);
-  }
+  const { response, payload } = await fetchJsonWithPolicy(url, { localPublicApi: true, timeoutMs: 25_000, maxBytes: 5_000_000 });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!isPublicSummary(payload)) throw new Error("Resumo público inválido");
+  return payload;
 }
 
 export function describeAqi(aqi: number | null): string {
@@ -380,7 +371,7 @@ export function usePublicSummary(
   useEffect(() => {
     const readRefreshMinutes = () => {
       try {
-        return clampRefreshMinutes(JSON.parse(window.localStorage.getItem(REFRESH_SETTINGS_KEY) ?? "null"));
+        return clampRefreshMinutes(safeParseJSON(window.localStorage.getItem(REFRESH_SETTINGS_KEY)));
       } catch {
         return DEFAULT_REFRESH_MINUTES;
       }

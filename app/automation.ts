@@ -101,49 +101,54 @@ function isAutomationRule(value: unknown): value is LocalAutomationRule {
 }
 
 export function migrateAutomationState(value: unknown): AutomationState {
-  if (validateAutomationState(value)) {
-    const hasRain = value.rules.some((rule) => rule.id === RAIN_RULE_ID);
-    return {
-      ...value,
-      version: 3,
-      rules: hasRain
-        ? value.rules.filter((rule) => rule.id === RAIN_RULE_ID).map(normalizeRule)
-        : [defaultAutomationState.rules[0]],
-      history: value.history.filter(isHistoryEvent),
-    };
-  }
-
-  if (Array.isArray(value)) {
-    return defaultAutomationState;
-  }
-
-  return defaultAutomationState;
-}
-
-function normalizeRule(rule: LocalAutomationRule): LocalAutomationRule {
+  if (!validateAutomationState(value)) return defaultAutomationState;
+  const rainCandidate = value.rules.find((rule) => isAutomationRule(rule) && rule.id === RAIN_RULE_ID);
   return {
-    ...rule,
-    cooldownMinutes: Number.isFinite(rule.cooldownMinutes)
-      ? rule.cooldownMinutes
-      : 60,
-    lastEvaluatedAt:
-      typeof rule.lastEvaluatedAt === "string" ? rule.lastEvaluatedAt : null,
-    lastExecutedAt:
-      typeof rule.lastExecutedAt === "string" ? rule.lastExecutedAt : null,
-    lastSignature: typeof rule.lastSignature === "string" ? rule.lastSignature : null,
-    config: { threshold: clampRainThreshold(rule.config?.threshold) },
+    version: 3,
+    rules: [rainCandidate ? normalizeRule(rainCandidate) : defaultAutomationState.rules[0]],
+    history: value.history.flatMap((item) => {
+      const normalized = normalizeHistoryEvent(item);
+      return normalized ? [normalized] : [];
+    }).slice(-200),
   };
 }
 
-function isHistoryEvent(value: unknown): value is AutomationHistoryEvent {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.ruleId === "string" &&
-    typeof value.message === "string" &&
-    typeof value.createdAt === "string" &&
-    typeof value.value === "number"
-  );
+function safeIsoDate(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 64 || Number.isNaN(Date.parse(value))) return null;
+  return new Date(value).toISOString();
+}
+
+function normalizeRule(rule: LocalAutomationRule): LocalAutomationRule {
+  const threshold = clampRainThreshold(rule.config?.threshold);
+  const cooldownMinutes = Number.isFinite(rule.cooldownMinutes)
+    ? Math.min(1_440, Math.max(5, Math.round(rule.cooldownMinutes)))
+    : RAIN_RULE_COOLDOWN_MINUTES;
+  return {
+    id: RAIN_RULE_ID,
+    name: "Alerta de chuva",
+    trigger: `Chuva > ${threshold}%`,
+    action: "Exibir alerta local e priorizar o clima",
+    enabled: rule.enabled === true,
+    cooldownMinutes,
+    lastEvaluatedAt: safeIsoDate(rule.lastEvaluatedAt),
+    lastExecutedAt: safeIsoDate(rule.lastExecutedAt),
+    lastSignature: typeof rule.lastSignature === "string" ? rule.lastSignature.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").slice(0, 160) || null : null,
+    config: { threshold },
+  };
+}
+
+function normalizeHistoryEvent(value: unknown): AutomationHistoryEvent | null {
+  if (!isRecord(value) || value.ruleId !== RAIN_RULE_ID) return null;
+  const createdAt = safeIsoDate(value.createdAt);
+  const numericValue = Number(value.value);
+  if (!createdAt || !Number.isFinite(numericValue)) return null;
+  return {
+    id: typeof value.id === "string" ? value.id.replace(/[^a-zA-Z0-9._:-]/g, "").slice(0, 160) || `rain-${createdAt}` : `rain-${createdAt}`,
+    ruleId: RAIN_RULE_ID,
+    message: typeof value.message === "string" ? value.message.replace(/[\u0000-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/g, "").slice(0, 300) : "Alerta de chuva",
+    createdAt,
+    value: Math.min(100, Math.max(0, numericValue)),
+  };
 }
 
 export function readAutomationState(): AutomationState {
@@ -155,7 +160,7 @@ export function readAutomationState(): AutomationState {
 }
 
 export function writeAutomationState(state: AutomationState) {
-  writeStoredValue("lumaboard-rules", state);
+  writeStoredValue("lumaboard-rules", migrateAutomationState(state));
 }
 
 export function evaluateRainRule(

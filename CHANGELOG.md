@@ -1,4 +1,25 @@
 # Changelog
+## [1.8.8] - 2026-07-28
+
+### Security
+
+- Adicionada contenção de abuso por cliente nas rotas públicas, com headers de limite e resposta 429.
+- Requisições de navegador marcadas como `cross-site` e origens divergentes são recusadas antes de consultar provedores.
+- Respostas externas agora têm allowlist de host, HTTPS obrigatório, timeout, redirect bloqueado, limite de bytes e limite estrutural JSON.
+- Pesquisas, cidades e coordenadas usam `private, no-store`; coordenadas são reduzidas antes de chegar às Functions.
+- URLs externas, imagens e mídia são validadas centralmente; destinos privados, credenciais e protocolos inseguros são rejeitados, e links controlados por provedores ficam limitados aos domínios esperados.
+- Importações JSON, compartilhamento de dashboards, temas e calendários possuem limites e normalização contra payloads abusivos e injeção.
+- O QR remoto foi removido para não enviar configurações de layout a terceiros.
+- O service worker limita quantidade, tamanho declarado e tipo de conteúdo dos caches, ignora Range, respeita `private`/`no-store`, valida mensagens e restringe navegação de notificações.
+- CSP e headers foram reforçados; produção não usa `unsafe-eval` e bloqueia frames, objetos e handlers de script em atributos.
+- Dependências e overrides foram fixados exatamente, todas as entradas remotas do lockfile exigem integridade SHA-512 e origem no registro npm, scripts de instalação foram aprovados explicitamente e o Dependabot foi configurado.
+- A varredura `security:scan` passou a integrar o gate e o empacotamento público.
+
+### Changed
+
+- Versão do aplicativo e cache PWA atualizados para 1.8.8.
+- Política de segurança e documentação de hardening adicionadas.
+
 
 ## [1.8.7] - 2026-07-28
 

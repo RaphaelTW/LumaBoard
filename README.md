@@ -9,14 +9,26 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.8.7 — Security Hardening** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, oito temas oficiais, temas personalizados, 16 modelos locais, preferências, favoritos, iniciais do avatar e os últimos dados públicos permitidos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.8.8 — Security Boundaries & Abuse Protection** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, oito temas oficiais, temas personalizados, 16 modelos locais, preferências, favoritos, iniciais do avatar e os últimos dados públicos permitidos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
 
 
-## Privacidade, termos e armazenamento local na v1.8.7
+## Privacidade, termos e armazenamento local na v1.8.8
 
 A aplicação inclui páginas em `/termos`, `/privacidade` e `/cookies`, além de um painel de escolhas salvo apenas no navegador. Atualmente não existem anúncios, cookies publicitários ou ferramenta analítica externa. Quando **Conteúdo externo** está desativado, novas chamadas opcionais para clima, notícias, música, arte, livros, TV, anime e pesquisas públicas são bloqueadas antes da rede; dados já salvos localmente continuam disponíveis quando houver cache. Qualquer futura monetização deverá atualizar os documentos e solicitar nova escolha antes de carregar tecnologias opcionais. Os textos são informativos e devem ser revisados por profissional jurídico antes de uso comercial.
+
+## Destaques da versão 1.8.8
+
+- limites de frequência, timeout e tamanho nas rotas públicas e nos provedores externos;
+- requests de navegador explicitamente cross-site e cabeçalhos `Origin` divergentes recusados antes dos provedores;
+- consultas, cidades e coordenadas fora de caches compartilhados, com redução de precisão antes das Functions;
+- validação central de URLs HTTPS, imagens externas, mídia, imports JSON, temas, dashboards e arquivos ICS;
+- links controlados por provedores conhecidos restritos aos domínios esperados;
+- service worker com quantidade, tamanho declarado e tipo de conteúdo dos caches limitados, respeito a `private`/`no-store` e mensagens de mesma origem;
+- CSP de produção sem `unsafe-eval`, frames e objetos bloqueados, headers adicionais e referrer mínimo;
+- dependências de topo fixadas, lockfile remoto com integridade SHA-512, scripts de instalação aprovados explicitamente, Dependabot e varredura local de segurança;
+- empacotamento de release bloqueia segredos, chaves, bancos locais, artefatos e links simbólicos.
 
 ## Destaques da versão 1.8.7
 

@@ -44,7 +44,7 @@ async function loadDevNews(): Promise<NewsItem[]> {
   return payload.filter(isRecord).flatMap((article): NewsItem[] => {
     const id = Number(article.id);
     const title = stringOrNull(article.title);
-    const url = safeHttpUrl(article.url);
+    const url = safeHttpUrl(article.url, ["dev.to"]);
     if (!Number.isInteger(id) || !title || !url) return [];
     return [{
       id: `dev-${id}`,
@@ -53,7 +53,7 @@ async function loadDevNews(): Promise<NewsItem[]> {
       score: Math.max(0, Number(article.public_reactions_count) || 0),
       source: "DEV Community",
       publishedAt: toIsoDate(article.published_at),
-      imageUrl: safeHttpUrl(article.cover_image) ?? safeHttpUrl(article.social_image),
+      imageUrl: safeHttpUrl(article.cover_image, ["media.dev.to", "*.dev.to"]) ?? safeHttpUrl(article.social_image, ["media.dev.to", "*.dev.to"]),
     }];
   });
 }

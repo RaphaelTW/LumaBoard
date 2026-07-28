@@ -1,39 +1,41 @@
-import { APP_USER_AGENT } from "../../../app-version";
+import { fetchJsonLimited, fetchTextLimited } from "../security";
 
-export async function fetchJson(url: string, timeout = 7000): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "User-Agent": APP_USER_AGENT,
-      },
-      next: { revalidate: 900 },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
+const SUMMARY_UPSTREAM_HOSTS = [
+  "api.artic.edu",
+  "api.bcb.gov.br",
+  "api.frankfurter.dev",
+  "api.jikan.moe",
+  "api.open-meteo.com",
+  "api.sunrise-sunset.org",
+  "api.tvmaze.com",
+  "air-quality-api.open-meteo.com",
+  "brasilapi.com.br",
+  "dev.to",
+  "earthquake.usgs.gov",
+  "flood-api.open-meteo.com",
+  "hacker-news.firebaseio.com",
+  "marine-api.open-meteo.com",
+  "openlibrary.org",
+  "pt.wikipedia.org",
+  "servicodados.ibge.gov.br",
+  "www.animenewsnetwork.com",
+] as const;
+
+export async function fetchJson(url: string, timeout = 7_000): Promise<unknown> {
+  return fetchJsonLimited(url, {
+    allowedHosts: SUMMARY_UPSTREAM_HOSTS,
+    timeoutMs: timeout,
+    noStore: true,
+    maxBytes: 4_000_000,
+  });
 }
 
-export async function fetchText(url: string) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/rss+xml, application/xml, text/xml, text/plain",
-        "User-Agent": APP_USER_AGENT,
-      },
-      next: { revalidate: 900 },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
-  } finally {
-    clearTimeout(timer);
-  }
+export async function fetchText(url: string): Promise<string> {
+  return fetchTextLimited(url, {
+    allowedHosts: SUMMARY_UPSTREAM_HOSTS,
+    timeoutMs: 12_000,
+    noStore: true,
+    maxBytes: 2_000_000,
+    accept: "application/rss+xml, application/xml, text/xml, text/plain",
+  });
 }

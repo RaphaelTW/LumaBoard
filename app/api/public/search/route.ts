@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { APP_USER_AGENT } from "../../../app-version";
+import { consumeRateLimit, fetchJsonLimited, normalizePublicQuery, rateLimitHeaders, rateLimitResponse, rejectCrossSiteRequest, safePublicHttpsUrl, sanitizePublicText } from "../security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,19 +11,12 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+function text(value: unknown, maximumLength = 4_000): string {
+  return sanitizePublicText(value, maximumLength);
 }
 
-function safeHttpUrl(value: unknown): string | null {
-  const candidate = text(value);
-  if (!candidate) return null;
-  try {
-    const url = new URL(candidate);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
+function safeHttpUrl(value: unknown, allowedHosts?: readonly string[]): string | null {
+  return safePublicHttpsUrl(value, allowedHosts ? { allowedHosts } : {});
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -31,8 +24,8 @@ function numberOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-function stripHtml(value: string): string {
-  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+function stripHtml(value: string, maximumLength = 4_000): string {
+  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, maximumLength);
 }
 
 const BRAZIL_STATE_CODES: Record<string, string> = {
@@ -58,23 +51,18 @@ function brazilStateCode(state: unknown, countryCode: unknown): string {
   return BRAZIL_STATE_CODES[normalizedKey(state)] ?? "";
 }
 
-async function fetchJson(url: string, timeout = 9000): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "User-Agent": APP_USER_AGENT,
-      },
-      next: { revalidate: 86400 },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
+const SEARCH_UPSTREAM_HOSTS = [
+  "api.jikan.moe",
+  "api.tvmaze.com",
+  "geocoding-api.open-meteo.com",
+  "nominatim.openstreetmap.org",
+  "openlibrary.org",
+  "pt.wikipedia.org",
+  "world.openfoodfacts.org",
+] as const;
+
+async function fetchJson(url: string, timeout = 9_000): Promise<unknown> {
+  return fetchJsonLimited(url, { allowedHosts: SEARCH_UPSTREAM_HOSTS, timeoutMs: timeout, noStore: true, maxBytes: 4_000_000 });
 }
 
 async function searchLocations(query: string) {
@@ -87,7 +75,7 @@ async function searchLocations(query: string) {
   const openMeteoPayload = await fetchJson(openMeteoUrl.toString()).catch(() => null);
   const openMeteoRecord = isRecord(openMeteoPayload) ? openMeteoPayload : {};
   const openMeteoItems = Array.isArray(openMeteoRecord.results)
-    ? openMeteoRecord.results.filter(isRecord)
+    ? openMeteoRecord.results.filter(isRecord).slice(0, 32)
     : [];
 
   const primary = openMeteoItems
@@ -133,7 +121,7 @@ async function searchLocations(query: string) {
 
     const nominatimPayload = await fetchJson(nominatimUrl.toString()).catch(() => []);
     const nominatimItems = Array.isArray(nominatimPayload)
-      ? nominatimPayload.filter(isRecord)
+      ? nominatimPayload.filter(isRecord).slice(0, 20)
       : [];
     fallback = nominatimItems
       .map((item) => {
@@ -174,7 +162,7 @@ async function searchBooks(query: string) {
   url.searchParams.set("limit", "8");
   url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,edition_count");
   const payload = await fetchJson(url.toString());
-  const docs = isRecord(payload) && Array.isArray(payload.docs) ? payload.docs.filter(isRecord) : [];
+  const docs = isRecord(payload) && Array.isArray(payload.docs) ? payload.docs.filter(isRecord).slice(0, 16) : [];
   return docs.map((item) => {
     const key = text(item.key);
     const coverId = numberOrNull(item.cover_i);
@@ -199,7 +187,7 @@ async function searchWikipedia(query: string) {
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "8");
   const payload = await fetchJson(url.toString());
-  const pages = isRecord(payload) && Array.isArray(payload.pages) ? payload.pages.filter(isRecord) : [];
+  const pages = isRecord(payload) && Array.isArray(payload.pages) ? payload.pages.filter(isRecord).slice(0, 16) : [];
   return pages.map((item) => {
     const title = text(item.title) || query;
     const thumbnail = isRecord(item.thumbnail) ? item.thumbnail : {};
@@ -209,7 +197,7 @@ async function searchWikipedia(query: string) {
       description: text(item.description),
       excerpt: stripHtml(text(item.excerpt)),
       url: `https://pt.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`,
-      thumbnailUrl: text(thumbnail.url) || null,
+      thumbnailUrl: safeHttpUrl(thumbnail.url, ["upload.wikimedia.org"]),
       source: "Wikipédia",
     };
   });
@@ -219,7 +207,7 @@ async function searchTv(query: string) {
   const url = new URL("https://api.tvmaze.com/search/shows");
   url.searchParams.set("q", query);
   const payload = await fetchJson(url.toString());
-  const items = Array.isArray(payload) ? payload.filter(isRecord) : [];
+  const items = Array.isArray(payload) ? payload.filter(isRecord).slice(0, 16) : [];
   return items.slice(0, 8).flatMap((entry) => {
     const show = isRecord(entry.show) ? entry.show : {};
     const image = isRecord(show.image) ? show.image : {};
@@ -231,12 +219,12 @@ async function searchTv(query: string) {
       id: String(show.id ?? title),
       title,
       language: text(show.language),
-      genres: Array.isArray(show.genres) ? show.genres.filter((item): item is string => typeof item === "string") : [],
+      genres: Array.isArray(show.genres) ? show.genres.filter((item): item is string => typeof item === "string").slice(0, 12).map((item) => text(item, 80)) : [],
       status: text(show.status),
       network: text(network.name) || text(webChannel.name) || "",
       summary: stripHtml(text(show.summary)),
-      url: text(show.url) || "https://www.tvmaze.com/",
-      imageUrl: text(image.medium) || null,
+      url: safeHttpUrl(show.url, ["www.tvmaze.com", "tvmaze.com"]) ?? "https://www.tvmaze.com/",
+      imageUrl: safeHttpUrl(image.medium, ["static.tvmaze.com"]),
       source: "TVmaze",
     }];
   });
@@ -249,11 +237,11 @@ async function searchAnime(query: string) {
   url.searchParams.set("limit", "8");
   url.searchParams.set("sfw", "true");
   const payload = await fetchJson(url.toString());
-  const items = isRecord(payload) && Array.isArray(payload.data) ? payload.data.filter(isRecord) : [];
+  const items = isRecord(payload) && Array.isArray(payload.data) ? payload.data.filter(isRecord).slice(0, 16) : [];
   return items.flatMap((anime) => {
     const id = numberOrNull(anime.mal_id);
     const title = text(anime.title_english) || text(anime.title);
-    const url = safeHttpUrl(anime.url);
+    const url = safeHttpUrl(anime.url, ["myanimelist.net", "www.myanimelist.net"]);
     if (id === null || !title || !url) return [];
     const images = isRecord(anime.images) ? anime.images : {};
     const jpg = isRecord(images.jpg) ? images.jpg : {};
@@ -268,7 +256,7 @@ async function searchAnime(query: string) {
       year: numberOrNull(anime.year),
       synopsis: stripHtml(text(anime.synopsis)),
       url,
-      imageUrl: safeHttpUrl(jpg.large_image_url) ?? safeHttpUrl(jpg.image_url),
+      imageUrl: safeHttpUrl(jpg.large_image_url, ["cdn.myanimelist.net"]) ?? safeHttpUrl(jpg.image_url, ["cdn.myanimelist.net"]),
       source: "Jikan / MyAnimeList",
     }];
   });
@@ -306,7 +294,7 @@ async function searchFood(barcode: string) {
     proteins100g: numberOrNull(nutriments.proteins_100g),
     ingredients: text(product.ingredients_text),
     allergens: text(product.allergens),
-    imageUrl: text(product.image_front_small_url) || null,
+    imageUrl: safeHttpUrl(product.image_front_small_url, ["images.openfoodfacts.org"]),
     url: `https://world.openfoodfacts.org/product/${barcode}`,
     source: "Open Food Facts",
   }];
@@ -324,47 +312,29 @@ function parseType(value: string | null): SearchType | null {
 }
 
 export async function GET(request: NextRequest) {
+  const crossSite = rejectCrossSiteRequest(request);
+  if (crossSite) return crossSite;
+  const rateLimit = consumeRateLimit(request, { scope: "public-search", limit: 30, windowMs: 60_000 });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
   const type = parseType(request.nextUrl.searchParams.get("type"));
-  const query = (request.nextUrl.searchParams.get("q") ?? "").trim();
-  if (!type) {
-    return NextResponse.json({ error: "Tipo de consulta inválido" }, { status: 400 });
-  }
-  if (query.length < 2 || query.length > 100) {
-    return NextResponse.json({ error: "Informe uma consulta entre 2 e 100 caracteres" }, { status: 400 });
-  }
-  if (type === "food" && !/^\d{8,14}$/.test(query.replace(/\D/g, ""))) {
-    return NextResponse.json({ error: "Informe um código de barras entre 8 e 14 dígitos" }, { status: 400 });
-  }
+  const query = normalizePublicQuery(request.nextUrl.searchParams.get("q") ?? "", 100);
+  const privateHeaders = { ...rateLimitHeaders(rateLimit), "Cache-Control": "private, no-store" };
+  if (!type) return NextResponse.json({ error: "Tipo de consulta inválido" }, { status: 400, headers: privateHeaders });
+  if (query.length < 2 || query.length > 100) return NextResponse.json({ error: "Informe uma consulta entre 2 e 100 caracteres" }, { status: 400, headers: privateHeaders });
+  if (type === "food" && !/^\d{8,14}$/.test(query.replace(/\D/g, ""))) return NextResponse.json({ error: "Informe um código de barras entre 8 e 14 dígitos" }, { status: 400, headers: privateHeaders });
 
   try {
     const normalizedQuery = type === "food" ? query.replace(/\D/g, "") : query;
-    const results =
-      type === "location"
-        ? await searchLocations(normalizedQuery)
-        : type === "book"
-          ? await searchBooks(normalizedQuery)
-          : type === "wikipedia"
-            ? await searchWikipedia(normalizedQuery)
-            : type === "tv"
-              ? await searchTv(normalizedQuery)
-              : type === "anime"
-                ? await searchAnime(normalizedQuery)
-                : await searchFood(normalizedQuery);
-
-    return NextResponse.json(
-      { type, query: normalizedQuery, updatedAt: new Date().toISOString(), results },
-      {
-        headers: {
-          "Cache-Control": "public, max-age=60, s-maxage=86400, stale-while-revalidate=604800",
-          "X-LumaBoard-Storage": "stateless",
-          "X-Robots-Tag": "noindex",
-        },
-      },
-    );
+    const results = type === "location" ? await searchLocations(normalizedQuery)
+      : type === "book" ? await searchBooks(normalizedQuery)
+        : type === "wikipedia" ? await searchWikipedia(normalizedQuery)
+          : type === "tv" ? await searchTv(normalizedQuery)
+            : type === "anime" ? await searchAnime(normalizedQuery)
+              : await searchFood(normalizedQuery);
+    return NextResponse.json({ type, query: normalizedQuery, updatedAt: new Date().toISOString(), results }, {
+      headers: { ...privateHeaders, "X-LumaBoard-Storage": "stateless", "X-Robots-Tag": "noindex" },
+    });
   } catch {
-    return NextResponse.json(
-      { error: "A fonte pública não respondeu. Tente novamente mais tarde." },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: "A fonte pública não respondeu. Tente novamente mais tarde." }, { status: 502, headers: privateHeaders });
   }
 }

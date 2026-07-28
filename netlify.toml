@@ -9,13 +9,23 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; media-src 'self' https: blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://covers.openlibrary.org https://upload.wikimedia.org https://static.tvmaze.com https://images.openfoodfacts.org https://www.artic.edu https://cdn.myanimelist.net https://media.dev.to https://*.dev.to https://*.mzstatic.com https://cdn.animenewsnetwork.com https://www.animenewsnetwork.com; font-src 'self' data:; connect-src 'self' https://api.bigdatacloud.net https://api.open-meteo.com; media-src 'self' blob: https:; manifest-src 'self'; worker-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
     Cross-Origin-Opener-Policy = "same-origin"
-    Permissions-Policy = "camera=(), microphone=(), payment=(), geolocation=(self)"
-    Referrer-Policy = "strict-origin-when-cross-origin"
+    Cross-Origin-Resource-Policy = "same-origin"
+    Origin-Agent-Cluster = "?1"
+    Permissions-Policy = "camera=(), microphone=(), payment=(), usb=(), serial=(), bluetooth=(), geolocation=(self)"
+    Referrer-Policy = "no-referrer"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
     X-Content-Type-Options = "nosniff"
-    X-Frame-Options = "SAMEORIGIN"
-    X-Robots-Tag = "noindex"
+    X-Frame-Options = "DENY"
+    X-Permitted-Cross-Domain-Policies = "none"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+
+[[headers]]
+  for = "/api/public/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
 
 [[headers]]
   for = "/sw.js"

@@ -37,10 +37,10 @@ async function loadAnimeNews(): Promise<NewsItem[]> {
   const items = xml.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
   const parsed = items.flatMap((block, index): NewsItem[] => {
     const title = xmlTag(block, "title");
-    const url = safeHttpUrl(xmlTag(block, "link"));
+    const url = safeHttpUrl(xmlTag(block, "link"), ["www.animenewsnetwork.com", "animenewsnetwork.com"]);
     if (!title || !url) return [];
     const guid = xmlTag(block, "guid") || `${index}-${url}`;
-    const imageUrl = safeHttpUrl(xmlAttribute(block, "media:thumbnail", "url") || xmlAttribute(block, "media:content", "url") || xmlAttribute(block, "enclosure", "url"));
+    const imageUrl = safeHttpUrl(xmlAttribute(block, "media:thumbnail", "url") || xmlAttribute(block, "media:content", "url") || xmlAttribute(block, "enclosure", "url"), ["cdn.animenewsnetwork.com", "www.animenewsnetwork.com"]);
     return [{
       id: `ann-${guid}`,
       title,
@@ -61,7 +61,7 @@ async function loadTrendingAnime(): Promise<AnimeItem[]> {
   const items = data.filter(isRecord).flatMap((anime): AnimeItem[] => {
     const id = Number(anime.mal_id);
     const title = stringOrNull(anime.title_english) ?? stringOrNull(anime.title);
-    const url = safeHttpUrl(anime.url);
+    const url = safeHttpUrl(anime.url, ["myanimelist.net", "www.myanimelist.net"]);
     if (!Number.isInteger(id) || !title || !url) return [];
     const images = isRecord(anime.images) ? anime.images : {};
     const jpg = isRecord(images.jpg) ? images.jpg : {};
@@ -72,7 +72,7 @@ async function loadTrendingAnime(): Promise<AnimeItem[]> {
       title,
       url,
       score: finiteOrNull(anime.score),
-      imageUrl: safeHttpUrl(jpg.large_image_url) ?? safeHttpUrl(jpg.image_url),
+      imageUrl: safeHttpUrl(jpg.large_image_url, ["cdn.myanimelist.net"]) ?? safeHttpUrl(jpg.image_url, ["cdn.myanimelist.net"]),
       detail: `${type}${episodes === null ? "" : ` · ${Math.round(episodes)} episódios`}`,
     }];
   });

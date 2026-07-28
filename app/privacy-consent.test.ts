@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 const root = process.cwd();
-describe("privacy and legal notice v1.8.7", () => {
+describe("privacy and legal notice v1.8.8", () => {
   it("publishes the three legal pages", () => {
     for (const file of ["app/termos/page.tsx", "app/privacidade/page.tsx", "app/cookies/page.tsx"]) expect(fs.existsSync(path.join(root, file))).toBe(true);
   });
@@ -38,16 +38,16 @@ describe("privacy and legal notice v1.8.7", () => {
     expect(preferences).toContain("externalContent === true");
     expect(publicData.indexOf("hasExternalContentConsent()")).toBeLessThan(publicData.indexOf("const payload = await fetchSummary"));
     expect(weather.indexOf("hasExternalContentConsent()")).toBeLessThan(weather.indexOf("const location = await resolveLocation"));
-    expect(music.indexOf("hasExternalContentConsent()")).toBeLessThan(music.indexOf("fetch(`/api/public/music"));
-    expect(explorer.indexOf("hasExternalContentConsent()")).toBeLessThan(explorer.indexOf("fetch(url"));
+    expect(music.indexOf("hasExternalContentConsent()")).toBeLessThan(music.indexOf("fetchJsonWithPolicy(`/api/public/music"));
+    expect(explorer.indexOf("hasExternalContentConsent()")).toBeLessThan(explorer.indexOf("fetchJsonWithPolicy(url"));
   });
 
   it("keeps cached local data visible while hiding optional external media and links", () => {
     const panel = fs.readFileSync(path.join(root, "app/public-data-panel.tsx"), "utf8");
     const music = fs.readFileSync(path.join(root, "app/music-module.tsx"), "utf8");
     expect(panel).toContain("Conteúdo externo desativado; usando somente cache local");
-    expect(panel).toContain("externalContentAllowed && active.imageUrl");
+    expect(panel).toContain("externalContentAllowed && safeExternalImageUrl(active.imageUrl)");
     expect(music).toContain("As músicas favoritas e o cache local continuam disponíveis");
-    expect(music).toContain("externalContentAllowed && track.artworkUrl");
+    expect(music).toContain("externalContentAllowed && safeExternalImageUrl(track.artworkUrl)");
   });
 });

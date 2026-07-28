@@ -46,6 +46,8 @@ export type ThemeBundle = {
 export const THEME_STORAGE_KEY = "lumaboard-theme-v2";
 export const MAX_THEME_IMAGE_BYTES = 700_000;
 const MAX_THEME_IMAGE_DATA_BYTES = 950_000;
+const MAX_THEME_PROFILES = 64;
+const SAFE_RASTER_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
 const base = {
   imageData: null,
@@ -80,10 +82,10 @@ function finite(value: unknown, fallback: number, minimum: number, maximum: numb
 
 export function normalizeThemeProfile(value: unknown, fallback = BUILTIN_THEMES[0]): ThemeProfile | null {
   if (!isRecord(value)) return null;
-  const imageData = typeof value.imageData === "string" && value.imageData.startsWith("data:image/") && new TextEncoder().encode(value.imageData).byteLength <= MAX_THEME_IMAGE_DATA_BYTES ? value.imageData : null;
+  const imageData = typeof value.imageData === "string" && SAFE_RASTER_DATA_URL.test(value.imageData) && new TextEncoder().encode(value.imageData).byteLength <= MAX_THEME_IMAGE_DATA_BYTES ? value.imageData : null;
   return {
-    id: typeof value.id === "string" && value.id ? value.id : `theme-${Date.now()}`,
-    name: typeof value.name === "string" && value.name.trim() ? value.name.trim().slice(0, 60) : "Tema personalizado",
+    id: typeof value.id === "string" ? (value.id.normalize("NFKC").replace(/[^A-Za-z0-9_.:-]/g, "-").slice(0, 120) || `theme-${Date.now()}`) : `theme-${Date.now()}`,
+    name: typeof value.name === "string" && value.name.trim() ? value.name.normalize("NFKC").replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) : "Tema personalizado",
     mode: value.mode === "night" || value.mode === "oled" || value.mode === "eink" || value.mode === "custom" ? value.mode : "paper",
     accent: validHex(value.accent, fallback.accent),
     surface: validHex(value.surface, fallback.surface),
@@ -110,7 +112,7 @@ export function createDefaultThemeState(): ThemeState {
 export function normalizeThemeState(value: unknown): ThemeState {
   const fallback = createDefaultThemeState();
   if (!isRecord(value) || !Array.isArray(value.profiles)) return fallback;
-  const profiles = value.profiles.flatMap((profile) => {
+  const profiles = value.profiles.slice(0, MAX_THEME_PROFILES).flatMap((profile) => {
     const normalized = normalizeThemeProfile(profile);
     return normalized ? [normalized] : [];
   });
@@ -271,7 +273,7 @@ export function createThemeBundle(themes: ThemeProfile[]): ThemeBundle {
 
 export function parseThemeBundle(value: unknown): ThemeProfile[] {
   if (isRecord(value) && value.kind === "lumaboard-theme-bundle" && Array.isArray(value.themes)) {
-    return value.themes.flatMap((theme) => {
+    return value.themes.slice(0, MAX_THEME_PROFILES).flatMap((theme) => {
       const normalized = normalizeThemeProfile(theme);
       return normalized ? [{ ...normalized, id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, mode: "custom" as const }] : [];
     });

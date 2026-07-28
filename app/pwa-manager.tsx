@@ -55,9 +55,11 @@ function restoreSafetySnapshot() {
   const raw = window.sessionStorage.getItem("lumaboard-update-snapshot");
   if (!raw) return;
   try {
-    const snapshot = JSON.parse(raw) as Record<string, string>;
+    const parsed = safeParseJSON(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid snapshot");
+    const snapshot = parsed as Record<string, unknown>;
     for (const [key, value] of Object.entries(snapshot)) {
-      if (!key.startsWith("lumaboard-") || window.localStorage.getItem(key) !== null) continue;
+      if (!key.startsWith("lumaboard-") || typeof value !== "string" || value.length > 1_500_000 || window.localStorage.getItem(key) !== null) continue;
       window.localStorage.setItem(key, value);
     }
   } catch {
@@ -147,6 +149,13 @@ export function PWAProvider({ children }: { children: ReactNode }) {
     }).catch(() => undefined);
 
     const onMessage = (event: MessageEvent) => {
+      const source = event.source;
+      if (!(source instanceof ServiceWorker)) return;
+      try {
+        if (new URL(source.scriptURL).origin !== window.location.origin) return;
+      } catch {
+        return;
+      }
       if (event.data?.type === "CACHE_READY" || event.data?.type === "API_CACHE_UPDATED") {
         persistSettings({ lastCacheAt: new Date().toISOString() });
       }

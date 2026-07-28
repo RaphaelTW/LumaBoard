@@ -67,6 +67,7 @@ import {
   safeParseJSON,
   writeStoredValue,
 } from "./storage";
+import { readSafeJsonFile } from "./import-security";
 
 export type View =
   | "overview"
@@ -126,13 +127,14 @@ export function LegacyStudioModule({ preview, onToast }: { preview: ReactNode; o
     const raw = window.localStorage.getItem("lumaboard-studio");
     if (!raw) return;
     try {
-      const saved = JSON.parse(raw) as {
+      const saved = safeParseJSON(raw) as {
         selected?: string;
         layout?: string;
         screenName?: string;
         palette?: string;
         interval?: string;
-      };
+      } | null;
+      if (!saved || typeof saved !== "object") return;
       queueMicrotask(() => {
         if (saved.selected) setSelected(saved.selected);
         if (saved.layout) setLayout(saved.layout);
@@ -289,8 +291,8 @@ export function LegacyPlaylistsModule({ onToast, city }: { onToast: ToastHandler
     const raw = window.localStorage.getItem("lumaboard-playlist");
     if (!raw) return;
     try {
-      const saved = JSON.parse(raw) as PlaylistItem[];
-      if (Array.isArray(saved)) queueMicrotask(() => setItems(saved));
+      const saved = safeParseJSON(raw);
+      if (Array.isArray(saved)) queueMicrotask(() => setItems(saved.slice(0, 128) as PlaylistItem[]));
     } catch {
       // Keep defaults.
     }
@@ -542,7 +544,7 @@ export function LibraryModule({ onToast }: { onToast: ToastHandler }) {
     const raw = window.localStorage.getItem("lumaboard-plugins");
     if (!raw) return;
     try {
-      const saved: unknown = JSON.parse(raw);
+      const saved = safeParseJSON(raw);
       if (Array.isArray(saved)) {
         queueMicrotask(() => setEnabled(normalizeEnabledPublicPlugins(saved)));
       }
@@ -646,17 +648,13 @@ export function AutomationModule({
   const importBackup = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const migrated = migrateBackup(JSON.parse(String(reader.result)));
-        if (!migrated) throw new Error("invalid");
-        importLocalBackup(migrated);
-        setState(readAutomationState());
-        onToast("Backup restaurado. Recarregue para aplicar todas as preferências.");
-      } catch { onToast("Arquivo de backup inválido."); }
-    };
-    reader.readAsText(file);
+    void readSafeJsonFile(file).then((payload) => {
+      const migrated = migrateBackup(payload);
+      if (!migrated) throw new Error("invalid");
+      importLocalBackup(migrated);
+      setState(readAutomationState());
+      onToast("Backup restaurado. Recarregue para aplicar todas as preferências.");
+    }).catch(() => onToast("Arquivo de backup inválido."));
   };
 
   return (

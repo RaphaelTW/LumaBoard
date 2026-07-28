@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { APP_USER_AGENT } from "../../../app-version";
+import { consumeRateLimit, fetchJsonLimited, rateLimitHeaders, rateLimitResponse, rejectCrossSiteRequest, safePublicHttpsUrl, sanitizePublicText } from "../security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +25,8 @@ function isRecord(value: unknown): value is RecordValue {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function text(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+function text(value: unknown, maximumLength = 500): string {
+  return sanitizePublicText(value, maximumLength);
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -34,34 +34,14 @@ function numberOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-function safeUrl(value: unknown): string | null {
-  const candidate = text(value);
-  if (!candidate) return null;
-  try {
-    const url = new URL(candidate);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
+const MUSIC_UPSTREAM_HOSTS = [
+  "itunes.apple.com",
+  "de1.api.radio-browser.info",
+  "at1.api.radio-browser.info",
+] as const;
 
-async function fetchJson(url: string, timeout = 9000): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "User-Agent": APP_USER_AGENT,
-      },
-      next: { revalidate: 3600 },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
+async function fetchJson(url: string, timeout = 9_000): Promise<unknown> {
+  return fetchJsonLimited(url, { allowedHosts: MUSIC_UPSTREAM_HOSTS, timeoutMs: timeout, revalidateSeconds: 3_600, maxBytes: 3_000_000 });
 }
 
 async function loadTracks(term: string) {
@@ -73,14 +53,14 @@ async function loadTracks(term: string) {
   url.searchParams.set("limit", "24");
   url.searchParams.set("explicit", "No");
   const payload = await fetchJson(url.toString());
-  const results = isRecord(payload) && Array.isArray(payload.results) ? payload.results.filter(isRecord) : [];
+  const results = isRecord(payload) && Array.isArray(payload.results) ? payload.results.filter(isRecord).slice(0, 48) : [];
   return results.flatMap((item) => {
     const id = text(item.trackId) || String(numberOrNull(item.trackId) ?? "");
     const title = text(item.trackName);
     const artist = text(item.artistName);
-    const storeUrl = safeUrl(item.trackViewUrl);
+    const storeUrl = safePublicHttpsUrl(item.trackViewUrl, { allowedHosts: ["music.apple.com", "itunes.apple.com"] });
     if (!id || !title || !artist || !storeUrl) return [];
-    const artwork = safeUrl(item.artworkUrl100)?.replace("100x100", "300x300") ?? null;
+    const artwork = safePublicHttpsUrl(item.artworkUrl100, { allowedHosts: ["*.mzstatic.com"] })?.replace("100x100", "300x300") ?? null;
     const query = encodeURIComponent(`${title} ${artist}`);
     return [{
       id,
@@ -89,7 +69,7 @@ async function loadTracks(term: string) {
       album: text(item.collectionName),
       genre: text(item.primaryGenreName),
       artworkUrl: artwork,
-      previewUrl: safeUrl(item.previewUrl),
+      previewUrl: safePublicHttpsUrl(item.previewUrl, { allowedHosts: ["*.itunes.apple.com", "*.mzstatic.com"] }),
       storeUrl,
       spotifySearchUrl: `https://open.spotify.com/search/${query}`,
     }];
@@ -115,20 +95,19 @@ async function loadStations(tag: string) {
     }
   }
   if (!Array.isArray(payload) && lastError) throw lastError;
-  const items = Array.isArray(payload) ? payload.filter(isRecord) : [];
+  const items = Array.isArray(payload) ? payload.filter(isRecord).slice(0, 40) : [];
   return items.flatMap((item) => {
     const id = text(item.stationuuid);
     const name = text(item.name);
-    const candidateStreamUrl = safeUrl(item.url_resolved) ?? safeUrl(item.url);
-    const streamUrl = candidateStreamUrl?.startsWith("https:") ? candidateStreamUrl : null;
+    const streamUrl = safePublicHttpsUrl(item.url_resolved, { allowNonStandardPort: true }) ?? safePublicHttpsUrl(item.url, { allowNonStandardPort: true });
     if (!id || !name || !streamUrl) return [];
     const tags = text(item.tags).split(",").map((tagValue) => tagValue.trim()).filter(Boolean).slice(0, 6);
     return [{
       id,
       name,
       streamUrl,
-      homepage: safeUrl(item.homepage),
-      favicon: safeUrl(item.favicon),
+      homepage: safePublicHttpsUrl(item.homepage),
+      favicon: null,
       countryCode: text(item.countrycode).toUpperCase(),
       tags,
       codec: text(item.codec),
@@ -138,7 +117,11 @@ async function loadStations(tag: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const genreKey = request.nextUrl.searchParams.get("genre")?.toLocaleLowerCase("en-US") ?? "pop";
+  const crossSite = rejectCrossSiteRequest(request);
+  if (crossSite) return crossSite;
+  const rateLimit = consumeRateLimit(request, { scope: "public-music", limit: 20, windowMs: 60_000 });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
+  const genreKey = request.nextUrl.searchParams.get("genre")?.toLocaleLowerCase("en-US").slice(0, 24) ?? "pop";
   const genre = GENRES[genreKey] ?? GENRES.pop;
   const [tracksResult, stationsResult] = await Promise.allSettled([
     loadTracks(genre.term),
@@ -159,5 +142,8 @@ export async function GET(request: NextRequest) {
     sources: ["Apple iTunes Search API", "Radio Browser"],
   });
   response.headers.set("Cache-Control", "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400");
+  response.headers.set("X-LumaBoard-Storage", "stateless");
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  for (const [key, value] of Object.entries(rateLimitHeaders(rateLimit))) response.headers.set(key, value);
   return response;
 }

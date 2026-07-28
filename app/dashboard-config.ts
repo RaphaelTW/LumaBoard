@@ -1,9 +1,14 @@
 "use client";
 
 import { isRecord, readStoredValue, writeStoredValue } from "./storage";
+import { hasSafeJsonStructure } from "./import-security";
 
 export const DASHBOARD_STORAGE_KEY = "lumaboard-dashboard-v2";
 export const MUSIC_STORAGE_KEY = "lumaboard-music-v1";
+export const MAX_DASHBOARD_SHARE_BYTES = 180_000;
+const MAX_LAYOUTS = 32;
+const MAX_WIDGETS_PER_LAYOUT = 48;
+const MAX_PLAYLIST_RULES = 128;
 
 export type DashboardWidgetType =
   | "clock"
@@ -247,6 +252,36 @@ function finite(value: unknown, fallback: number, minimum: number, maximum: numb
   return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
 }
 
+function safeId(value: unknown, fallbackPrefix: string): string {
+  if (typeof value !== "string") return uid(fallbackPrefix);
+  const normalized = value.normalize("NFKC").replace(/[^A-Za-z0-9_.:-]/g, "-").replace(/-+/g, "-").slice(0, 120);
+  return normalized || uid(fallbackPrefix);
+}
+
+function safeLabel(value: unknown, fallback: string, maximumLength = 160): string {
+  if (typeof value !== "string") return fallback;
+  const normalized = value.normalize("NFKC").replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximumLength);
+  return normalized || fallback;
+}
+
+function validTime(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  return match && Number(match[1]) <= 23 && Number(match[2]) <= 59 ? value : fallback;
+}
+
+function uniqueId(value: string, seen: Set<string>, fallbackPrefix: string): string {
+  let candidate = value;
+  let suffix = 2;
+  while (seen.has(candidate)) {
+    candidate = `${value.slice(0, 105)}-${suffix}`;
+    suffix += 1;
+  }
+  if (!candidate) candidate = uid(fallbackPrefix);
+  seen.add(candidate);
+  return candidate;
+}
+
 function isWidgetType(value: unknown): value is DashboardWidgetType {
   return value === "clock" || value === "agenda" || value === "weather" || value === "focus" || value === "news" || value === "anime" || value === "economy" || value === "music";
 }
@@ -254,9 +289,9 @@ function isWidgetType(value: unknown): value is DashboardWidgetType {
 function normalizeWidget(value: unknown): DashboardWidget | null {
   if (!isRecord(value) || !isWidgetType(value.type)) return null;
   return {
-    id: typeof value.id === "string" && value.id ? value.id : uid("widget"),
+    id: safeId(value.id, "widget"),
     type: value.type,
-    title: typeof value.title === "string" && value.title.trim() ? value.title.trim() : WIDGET_LABELS[value.type],
+    title: safeLabel(value.title, WIDGET_LABELS[value.type], 120),
     enabled: value.enabled !== false,
     colSpan: Math.round(finite(value.colSpan, 1, 1, 4)),
     rowSpan: Math.round(finite(value.rowSpan, 1, 1, 3)),
@@ -270,15 +305,16 @@ function normalizeWidget(value: unknown): DashboardWidget | null {
 
 function normalizeLayout(value: unknown): DashboardLayout | null {
   if (!isRecord(value) || !Array.isArray(value.widgets)) return null;
-  const widgets = value.widgets.flatMap((item) => {
+  const seenWidgetIds = new Set<string>();
+  const widgets = value.widgets.slice(0, MAX_WIDGETS_PER_LAYOUT).flatMap((item) => {
     const widget = normalizeWidget(item);
-    return widget ? [widget] : [];
+    return widget ? [{ ...widget, id: uniqueId(widget.id, seenWidgetIds, "widget") }] : [];
   });
   if (widgets.length === 0) return null;
   const columns = Math.round(finite(value.columns, 3, 1, 4)) as 1 | 2 | 3 | 4;
   return {
-    id: typeof value.id === "string" && value.id ? value.id : uid("layout"),
-    name: typeof value.name === "string" && value.name.trim() ? value.name.trim() : "Painel sem nome",
+    id: safeId(value.id, "layout"),
+    name: safeLabel(value.name, "Painel sem nome", 120),
     columns,
     gap: Math.round(finite(value.gap, 14, 0, 32)),
     background: value.background === "night" || value.background === "eink" || value.background === "transparent" ? value.background : "paper",
@@ -292,13 +328,13 @@ function normalizeRule(value: unknown, validLayoutIds: Set<string>, order: numbe
     ? Array.from(new Set(value.days.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)))
     : [0, 1, 2, 3, 4, 5, 6];
   return {
-    id: typeof value.id === "string" && value.id ? value.id : uid("rule"),
-    name: typeof value.name === "string" && value.name.trim() ? value.name.trim() : "Programação",
+    id: safeId(value.id, "rule"),
+    name: safeLabel(value.name, "Programação", 120),
     layoutId: value.layoutId,
     enabled: value.enabled !== false,
     days: days.length ? days : [0, 1, 2, 3, 4, 5, 6],
-    startTime: typeof value.startTime === "string" && /^\d{2}:\d{2}$/.test(value.startTime) ? value.startTime : "00:00",
-    endTime: typeof value.endTime === "string" && /^\d{2}:\d{2}$/.test(value.endTime) ? value.endTime : "23:59",
+    startTime: validTime(value.startTime, "00:00"),
+    endTime: validTime(value.endTime, "23:59"),
     durationSeconds: Math.round(finite(value.durationSeconds, 45, 5, 3600)),
     order: Math.round(finite(value.order, order, 0, 999)),
   };
@@ -307,13 +343,14 @@ function normalizeRule(value: unknown, validLayoutIds: Set<string>, order: numbe
 export function normalizeDashboardState(value: unknown): DashboardState {
   const fallback = createDefaultDashboardState();
   if (!isRecord(value) || !Array.isArray(value.layouts)) return fallback;
-  const layouts = value.layouts.flatMap((item) => {
+  const seenLayoutIds = new Set<string>();
+  const layouts = value.layouts.slice(0, MAX_LAYOUTS).flatMap((item) => {
     const layout = normalizeLayout(item);
-    return layout ? [layout] : [];
+    return layout ? [{ ...layout, id: uniqueId(layout.id, seenLayoutIds, "layout") }] : [];
   });
   if (layouts.length === 0) return fallback;
   const validLayoutIds = new Set(layouts.map((layout) => layout.id));
-  const rawPlaylist = Array.isArray(value.playlist) ? value.playlist : [];
+  const rawPlaylist = Array.isArray(value.playlist) ? value.playlist.slice(0, MAX_PLAYLIST_RULES) : [];
   const playlist = rawPlaylist.flatMap((item, index) => {
     const rule = normalizeRule(item, validLayoutIds, index);
     return rule ? [rule] : [];
@@ -416,6 +453,7 @@ export function resolveScheduledLayout(state: DashboardState, now = new Date(), 
 export function encodeDashboardState(state: DashboardState): string {
   const json = JSON.stringify(normalizeDashboardState(state));
   const bytes = new TextEncoder().encode(json);
+  if (bytes.byteLength > MAX_DASHBOARD_SHARE_BYTES) throw new Error("Configuração grande demais para compartilhar por link.");
   let binary = "";
   bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -423,11 +461,15 @@ export function encodeDashboardState(state: DashboardState): string {
 
 export function decodeDashboardState(encoded: string): DashboardState | null {
   try {
+    if (!encoded || encoded.length > Math.ceil(MAX_DASHBOARD_SHARE_BYTES * 1.4) || !/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
     const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
     const binary = atob(padded);
     const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    return normalizeDashboardState(JSON.parse(new TextDecoder().decode(bytes)) as unknown);
+    if (bytes.byteLength > MAX_DASHBOARD_SHARE_BYTES) return null;
+    const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (!hasSafeJsonStructure(value, { maxBytes: MAX_DASHBOARD_SHARE_BYTES, maxNodes: 8_000 })) return null;
+    return normalizeDashboardState(value);
   } catch {
     return null;
   }

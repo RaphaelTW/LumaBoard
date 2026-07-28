@@ -79,11 +79,26 @@ const defaultFocus: FocusSession = {
 };
 
 function isDateKey(value: unknown): value is string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (typeof value !== "string") return false;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
 function isTimeKey(value: unknown): value is string {
-  return typeof value === "string" && /^\d{2}:\d{2}$/.test(value);
+  if (typeof value !== "string") return false;
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  return Boolean(match && Number(match[1]) <= 23 && Number(match[2]) <= 59);
+}
+
+function sanitizeLocalText(value: unknown, maximumLength: number): string {
+  return typeof value === "string"
+    ? value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/g, "").trim().slice(0, maximumLength)
+    : "";
 }
 
 function createLocalId(): string {
@@ -97,7 +112,7 @@ function normalizeSubtasks(value: unknown): AgendaSubtask[] {
     if (!isRecord(item) || typeof item.title !== "string" || !item.title.trim()) return [];
     return [{
       id: typeof item.id === "string" && item.id ? item.id : createLocalId(),
-      title: item.title.trim().slice(0, 160),
+      title: sanitizeLocalText(item.title, 160),
       completed: item.completed === true,
     }];
   }).slice(0, 50);
@@ -105,8 +120,8 @@ function normalizeSubtasks(value: unknown): AgendaSubtask[] {
 
 function normalizeAgendaEvent(value: unknown): AgendaEvent | null {
   if (!isRecord(value)) return null;
-  const id = typeof value.id === "string" && value.id ? value.id : createLocalId();
-  const title = typeof value.title === "string" ? value.title.trim().slice(0, 240) : "";
+  const id = sanitizeLocalText(value.id, 160) || createLocalId();
+  const title = sanitizeLocalText(value.title, 240);
   if (!title || !isDateKey(value.date) || !isTimeKey(value.time)) return null;
   const kind: AgendaKind = value.kind === "task" ? "task" : "reminder";
   const recurrence: AgendaRecurrence = value.recurrence === "daily" || value.recurrence === "weekly" || value.recurrence === "monthly" || value.recurrence === "yearly" ? value.recurrence : "once";
@@ -124,8 +139,8 @@ function normalizeAgendaEvent(value: unknown): AgendaEvent | null {
     ? Array.from(new Set(value.reminderMinutesList.map(Number).filter((minutes) => Number.isFinite(minutes) && minutes >= 0 && minutes <= 10080).map(Math.round))).sort((a, b) => b - a).slice(0, 5)
     : [reminderMinutes];
   const durationMinutes = Number.isFinite(Number(value.durationMinutes)) ? Math.min(1440, Math.max(0, Math.round(Number(value.durationMinutes)))) : 30;
-  const location = typeof value.location === "string" ? value.location.trim().slice(0, 300) : "";
-  const notes = typeof value.notes === "string" ? value.notes.trim().slice(0, 4000) : "";
+  const location = sanitizeLocalText(value.location, 300);
+  const notes = sanitizeLocalText(value.notes, 4000);
   return {
     id,
     title,
@@ -259,8 +274,9 @@ export function getNextOccurrence(event: AgendaEvent, fromDate = localDateKey(),
 }
 
 export function listOccurrences(events: AgendaEvent[], startDate: string, endDate: string, includeCompleted = true): AgendaOccurrence[] {
+  const safeEvents = normalizeAgenda(events).slice(0, 1000);
   const result: AgendaOccurrence[] = [];
-  for (const event of events) {
+  for (const event of safeEvents) {
     let cursor = startDate;
     for (let attempts = 0; attempts < 800; attempts += 1) {
       const occurrence = getNextOccurrence(event, cursor, includeCompleted);
@@ -283,12 +299,14 @@ export function getPreviousOccurrence(event: AgendaEvent, onOrBefore = localDate
 function normalizeFocus(value: FocusSession): FocusSession {
   const durationMinutes = Math.min(120, Math.max(1, Math.round(value.durationMinutes)));
   const durationSeconds = durationMinutes * 60;
+  const project = sanitizeLocalText(value.project, 160) || defaultFocus.project;
+  const task = sanitizeLocalText(value.task, 240) || defaultFocus.task;
   if (value.running && value.endsAt) {
-    const remainingSeconds = Math.max(0, Math.ceil((value.endsAt - Date.now()) / 1000));
-    if (remainingSeconds === 0) return { ...value, durationMinutes, remainingSeconds: 0, running: false, endsAt: null };
-    return { ...value, durationMinutes, remainingSeconds };
+    const remainingSeconds = Math.min(durationSeconds, Math.max(0, Math.ceil((value.endsAt - Date.now()) / 1000)));
+    if (remainingSeconds === 0) return { project, task, durationMinutes, remainingSeconds: 0, running: false, endsAt: null };
+    return { project, task, durationMinutes, remainingSeconds, running: true, endsAt: value.endsAt };
   }
-  return { ...value, durationMinutes, remainingSeconds: Math.min(durationSeconds, Math.max(0, Math.round(value.remainingSeconds))), running: false, endsAt: null };
+  return { project, task, durationMinutes, remainingSeconds: Math.min(durationSeconds, Math.max(0, Math.round(value.remainingSeconds))), running: false, endsAt: null };
 }
 
 export function formatTimer(totalSeconds: number): string {
@@ -321,7 +339,11 @@ function occurrenceTimestamp(occurrence: AgendaOccurrence): number {
 }
 
 function icsEscape(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/;/g, "\\;").replace(/\n/g, "\\n");
+  return sanitizeLocalText(value.replace(/\r\n?/g, "\n"), 4_000)
+    .replace(/\\/g, "\\\\")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;")
+    .replace(/\n/g, "\\n");
 }
 
 function icsUnescape(value: string): string {
@@ -356,6 +378,7 @@ function minutesFromTrigger(value: string): number | null {
 }
 
 export function exportAgendaICS(events: AgendaEvent[]): string {
+  const safeEvents = normalizeAgenda(events).slice(0, 1000);
   const nowStamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
   const lines = [
     "BEGIN:VCALENDAR",
@@ -365,7 +388,7 @@ export function exportAgendaICS(events: AgendaEvent[]): string {
     "METHOD:PUBLISH",
     "X-WR-CALNAME:LumaBoard",
   ];
-  for (const event of events) {
+  for (const event of safeEvents) {
     const stamp = localDateTimeStamp(event.date, event.time);
     lines.push(
       "BEGIN:VEVENT",
@@ -408,8 +431,9 @@ export function exportAgendaICS(events: AgendaEvent[]): string {
 }
 
 export function importAgendaICS(text: string): AgendaEvent[] {
+  if (typeof text !== "string" || new TextEncoder().encode(text).byteLength > 2_000_000) return [];
   const unfold = text.replace(/\r?\n[ \t]/g, "");
-  const blocks = unfold.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g) ?? [];
+  const blocks = (unfold.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g) ?? []).slice(0, 1000);
   const dayMap: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
   const categoryMap: Record<string, AgendaCategory> = {
     pessoal: "personal",
@@ -451,15 +475,15 @@ export function importAgendaICS(text: string): AgendaEvent[] {
       const item = value.match(/^(\d{4})(\d{2})(\d{2})/);
       return item ? [`${item[1]}-${item[2]}-${item[3]}`] : [];
     });
-    return [{
+    const event = normalizeAgendaEvent({
       id: createLocalId(),
-      title: title.slice(0, 240),
+      title,
       date,
       time,
-      kind: "reminder" as const,
+      kind: "reminder",
       recurrence,
       category: categoryMap[categoryRaw] ?? "personal",
-      color: "moss" as const,
+      color: "moss",
       completedDates: [],
       endDate: until,
       repeatDays: byDay,
@@ -471,7 +495,8 @@ export function importAgendaICS(text: string): AgendaEvent[] {
       priority,
       notes: icsUnescape(read("DESCRIPTION")),
       skippedDates: exDates,
-    }];
+    });
+    return event ? [event] : [];
   }).slice(0, 1000);
 }
 

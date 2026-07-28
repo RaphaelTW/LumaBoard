@@ -36,6 +36,7 @@ import {
   type AgendaPriority,
   type AgendaRecurrence,
 } from "./local-widgets";
+import { parseSafeJsonText, readTextFileLimited } from "./import-security";
 
 const weekLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const monthLabels = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -250,8 +251,11 @@ export function AgendaModule({ onToast }: { onToast: (message: string) => void }
   const drop = (date: string, event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     try {
-      const payload = JSON.parse(event.dataTransfer.getData("application/json")) as { id: string; occurrenceDate: string };
-      if (agenda.moveOccurrence(payload.id, payload.occurrenceDate, date)) onToast(`Ocorrência movida para ${formatDate(date)}.`);
+      const payload = parseSafeJsonText(event.dataTransfer.getData("application/json"), { maxBytes: 2_000, maxDepth: 4, maxNodes: 16 });
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("invalid drag payload");
+      const candidate = payload as Record<string, unknown>;
+      if (typeof candidate.id !== "string" || typeof candidate.occurrenceDate !== "string") throw new Error("invalid drag payload");
+      if (agenda.moveOccurrence(candidate.id.slice(0, 160), candidate.occurrenceDate, date)) onToast(`Ocorrência movida para ${formatDate(date)}.`);
     } catch {
       onToast("Não foi possível mover o item.");
     }
@@ -260,13 +264,11 @@ export function AgendaModule({ onToast }: { onToast: (message: string) => void }
   const importICS = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || file.size > 2_000_000) return onToast("O arquivo .ics deve ter até 2 MB.");
-    const reader = new FileReader();
-    reader.onload = () => {
-      const imported = importAgendaICS(String(reader.result));
+    void readTextFileLimited(file, 2_000_000).then((text) => {
+      const imported = importAgendaICS(text);
       const count = agenda.importEvents(imported);
       onToast(`${count} eventos importados com duração, local e alertas compatíveis.`);
-    };
-    reader.readAsText(file);
+    }).catch(() => onToast("Arquivo .ics inválido ou acima do limite permitido."));
     event.target.value = "";
   };
 

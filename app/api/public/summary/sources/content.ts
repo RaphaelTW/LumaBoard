@@ -1,5 +1,5 @@
 import { fetchJson } from "../fetch-json";
-import { finiteOrNull, isRecord, localDateKey, stringOrNull } from "../utils";
+import { finiteOrNull, isRecord, localDateKey, safeHttpUrl, stringOrNull } from "../utils";
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -66,7 +66,7 @@ export async function loadWikipedia() {
     description: stringOrNull(page.description) ?? "Artigo da Wikipédia",
     excerpt: stripHtml(stringOrNull(page.excerpt) ?? ""),
     url: `https://pt.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`,
-    thumbnailUrl: stringOrNull(thumbnail.url),
+    thumbnailUrl: safeHttpUrl(thumbnail.url, ["upload.wikimedia.org"]),
   };
 }
 
@@ -82,7 +82,7 @@ function parseTvItem(value: unknown) {
     episode: stringOrNull(value.name) ?? "Episódio sem título",
     date: stringOrNull(value.airdate),
     time: stringOrNull(value.airtime),
-    url: stringOrNull(value.url) ?? stringOrNull(show.url) ?? "https://www.tvmaze.com/",
+    url: safeHttpUrl(value.url, ["www.tvmaze.com", "tvmaze.com"]) ?? safeHttpUrl(show.url, ["www.tvmaze.com", "tvmaze.com"]) ?? "https://www.tvmaze.com/",
     network: stringOrNull(webChannel.name) ?? stringOrNull(network.name) ?? "Streaming / TV",
   };
 }

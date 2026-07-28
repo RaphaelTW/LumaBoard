@@ -26,6 +26,7 @@ import {
 import { formatTimer } from "./local-widgets";
 import { openPrivacyPreferences, useExternalContentConsent } from "./privacy-preferences";
 import { themeCssVariables, useThemeForLayout } from "./theme-system";
+import { safeExternalImageUrl, safeExternalUrl } from "./url-security";
 
 export type DashboardRenderData = {
   now: Date;
@@ -50,15 +51,6 @@ function formatTime(date: Date): string {
 
 function formatWeekday(date: Date): string {
   return new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long" }).format(date);
-}
-
-function safeLink(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : "";
-  } catch {
-    return "";
-  }
 }
 
 function WidgetShell({ widget, icon, children }: { widget: DashboardWidget; icon: ReactNode; children: ReactNode }) {
@@ -117,17 +109,17 @@ function NewsWidget({
     <WidgetShell widget={widget} icon={icon}>
       {!current ? <p className="dashboard-empty">{label} indisponíveis.</p> : (
         <div className={`dashboard-news ${settings.newsImageOnly ? "image-only" : ""}`}>
-          {externalContentAllowed && current.imageUrl && <img src={current.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />}
+          {externalContentAllowed && safeExternalImageUrl(current.imageUrl) && <img src={safeExternalImageUrl(current.imageUrl)} alt="" loading="lazy" referrerPolicy="no-referrer" />}
           {!settings.newsImageOnly && <div>
             <strong>{current.title}</strong>
             <span>{current.source} · {index + 1}/{filtered.length}</span>
-            {externalContentAllowed && safeLink(current.url) ? <a href={current.url} target="_blank" rel="noreferrer">Abrir <ExternalLink /></a> : <button className="button secondary" onClick={openPrivacyPreferences}>Ativar externo</button>}
+            {externalContentAllowed && safeExternalUrl(current.url) ? <a href={safeExternalUrl(current.url)} target="_blank" rel="noopener noreferrer">Abrir <ExternalLink /></a> : <button className="button secondary" onClick={openPrivacyPreferences}>Ativar externo</button>}
           </div>}
         </div>
       )}
       {secondary && secondary.length > 0 && (
         <div className="dashboard-anime-strip">
-          {secondary.slice(0, 3).map((item) => externalContentAllowed ? <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.title}</a> : <span key={item.id}>{item.title}</span>)}
+          {secondary.slice(0, 3).map((item) => externalContentAllowed && safeExternalUrl(item.url) ? <a key={item.id} href={safeExternalUrl(item.url)} target="_blank" rel="noopener noreferrer">{item.title}</a> : <span key={item.id}>{item.title}</span>)}
         </div>
       )}
     </WidgetShell>
@@ -163,7 +155,7 @@ function DashboardWidgetView({ widget, data, settings }: { widget: DashboardWidg
   const music = data.music ?? readMusicCache();
   return <WidgetShell widget={widget} icon={<ListMusic />}><div className="dashboard-music">
     <span>Gênero: {music.genre || "não escolhido"}</span>
-    {music.tracks.slice(0, 3).map((track) => <a key={track.id} href={track.spotifySearchUrl || track.storeUrl} target="_blank" rel="noreferrer"><strong>{track.title}</strong><small>{track.artist}</small></a>)}
+    {music.tracks.slice(0, 3).map((track) => { const href = safeExternalUrl(track.spotifySearchUrl) || safeExternalUrl(track.storeUrl); return href ? <a key={track.id} href={href} target="_blank" rel="noopener noreferrer"><strong>{track.title}</strong><small>{track.artist}</small></a> : null; })}
     {music.tracks.length === 0 && <p className="dashboard-empty">Escolha um gênero na área Música.</p>}
   </div></WidgetShell>;
 }

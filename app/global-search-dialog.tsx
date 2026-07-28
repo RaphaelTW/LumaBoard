@@ -6,6 +6,7 @@ import type { AgendaEvent } from "./local-widgets";
 import type { DashboardState } from "./dashboard-config";
 import type { PublicSummary } from "./public-data";
 import type { View } from "./modules";
+import { safeExternalUrl } from "./url-security";
 
 type NavItem = {
   id: View;
@@ -56,7 +57,7 @@ export function GlobalSearchDialog({
           <div><span className="eyebrow">NAVEGAÇÃO</span>{navigationResults.map(({ id, label, icon: Icon }) => <button key={id} onClick={() => { onNavigate(id); onClose(); }}><Icon /><strong>{label}</strong><small>Abrir área</small></button>)}</div>
           {eventResults.length > 0 && <div><span className="eyebrow">AGENDA</span>{eventResults.map((item) => <button key={item.id} onClick={() => { onNavigate("overview"); onClose(); window.setTimeout(() => document.querySelector(".local-data-section")?.scrollIntoView({ behavior: "smooth" }), 50); }}><CalendarDays /><strong>{item.title}</strong><small>{formatPublicDate(item.date)} · {item.time}</small></button>)}</div>}
           {layoutResults.length > 0 && <div><span className="eyebrow">LAYOUTS</span>{layoutResults.map((layout) => <button key={layout.id} onClick={() => { onNavigate("studio"); onClose(); }}><Columns3 /><strong>{layout.name}</strong><small>{layout.widgets.length} widgets</small></button>)}</div>}
-          {newsResults.length > 0 && <div><span className="eyebrow">NOTÍCIAS</span>{newsResults.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer"><Newspaper /><strong>{item.title}</strong><small>{item.source}</small></a>)}</div>}
+          {newsResults.length > 0 && <div><span className="eyebrow">NOTÍCIAS</span>{newsResults.map((item) => { const href = safeExternalUrl(item.url); return href ? <a key={item.id} href={href} target="_blank" rel="noopener noreferrer"><Newspaper /><strong>{item.title}</strong><small>{item.source}</small></a> : <span key={item.id}><Newspaper /><strong>{item.title}</strong><small>{item.source}</small></span>; })}</div>}
           {normalized && navigationResults.length + eventResults.length + layoutResults.length + newsResults.length === 0 && <p>Nenhum resultado local encontrado.</p>}
         </div>
       </section>

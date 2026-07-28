@@ -4,7 +4,8 @@ import { Check, Copy, Download, Eye, Heart, Image as ImageIcon, LayoutTemplate, 
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { readDashboardState, writeDashboardState } from "./dashboard-config";
 import { DASHBOARD_TEMPLATES, findTemplates, templateCategories, type DashboardTemplate, type TemplateCategory } from "./dashboard-templates";
-import { writeStoredValue } from "./storage";
+import { safeParseJSON, writeStoredValue } from "./storage";
+import { readSafeJsonFile } from "./import-security";
 import { BUILTIN_THEME_IDS, BUILTIN_THEMES, MAX_THEME_IMAGE_BYTES, contrastRatio, createThemeBundle, parseThemeBundle, useThemeSystem, type ThemeDensity, type ThemeFont, type ThemeProfile } from "./theme-system";
 
 const FAVORITES_KEY = "lumaboard-template-favorites-v1";
@@ -26,7 +27,7 @@ function createCustomTheme(base: ThemeProfile, name = "Meu tema"): ThemeProfile 
 function readFavorites(): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(FAVORITES_KEY) ?? "[]") as unknown;
+    const parsed = safeParseJSON(window.localStorage.getItem(FAVORITES_KEY));
     return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
   } catch {
     return [];
@@ -108,12 +109,22 @@ export function AppearanceModule({
   const uploadBackground = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > MAX_THEME_IMAGE_BYTES) {
-      onToast("A imagem deve ter até 700 KB.");
+    const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+    if (!allowedTypes.has(file.type) || file.size <= 0 || file.size > MAX_THEME_IMAGE_BYTES) {
+      event.target.value = "";
+      onToast("Use PNG, JPEG ou WebP com até 700 KB.");
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => patch({ imageData: String(reader.result), backgroundType: "image" });
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!/^data:image\/(?:png|jpeg|webp);base64,/.test(result)) {
+        onToast("A imagem selecionada não é válida.");
+        return;
+      }
+      patch({ imageData: result, backgroundType: "image" });
+    };
+    reader.onerror = () => onToast("Não foi possível ler a imagem.");
     reader.readAsDataURL(file);
     event.target.value = "";
   };
@@ -121,18 +132,12 @@ export function AppearanceModule({
   const importTheme = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || file.size > 4_000_000) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const imported = parseThemeBundle(JSON.parse(String(reader.result)));
-        if (imported.length === 0) throw new Error("empty");
-        persist({ ...state, profiles: [...state.profiles, ...imported], activeThemeId: imported[0].id });
-        onToast(`${imported.length} tema(s) importado(s).`);
-      } catch {
-        onToast("Arquivo de tema inválido.");
-      }
-    };
-    reader.readAsText(file);
+    void readSafeJsonFile(file, { maxBytes: 4_000_000, maxArrayItems: 128 }).then((payload) => {
+      const imported = parseThemeBundle(payload);
+      if (imported.length === 0) throw new Error("empty");
+      persist({ ...state, profiles: [...state.profiles, ...imported], activeThemeId: imported[0].id });
+      onToast(`${imported.length} tema(s) importado(s).`);
+    }).catch(() => onToast("Arquivo de tema inválido."));
     event.target.value = "";
   };
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hasExternalContentConsent, useExternalContentConsent } from "./privacy-preferences";
 import { isRecord, readStoredValue, writeStoredValue } from "./storage";
+import { fetchJsonWithPolicy } from "./client-fetch";
 
 const LOCATION_KEY = "lumaboard-location-v1";
 const WEATHER_KEY = "lumaboard-weather-v1";
@@ -88,6 +89,16 @@ export const initialWeather: WeatherSnapshot = {
   hourly: [],
 };
 
+function sanitizeLocationText(value: unknown, maximumLength: number): string {
+  return typeof value === "string"
+    ? value.normalize("NFKC").replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximumLength)
+    : "";
+}
+
+function roundPublicCoordinate(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function readStoredLocation(): StoredLocation | null {
   const value = readStoredValue<StoredLocation | null>(
     LOCATION_KEY,
@@ -98,20 +109,19 @@ function readStoredLocation(): StoredLocation | null {
 }
 
 export function isStoredLocation(value: unknown): value is StoredLocation {
-  if (
-    !value ||
-    !isRecord(value) ||
-    !Number.isFinite(value.latitude) ||
-    !Number.isFinite(value.longitude) ||
-    typeof value.city !== "string" ||
-    typeof value.state !== "string" ||
-    typeof value.stateCode !== "string" ||
-    typeof value.countryCode !== "string" ||
-    typeof value.timezone !== "string"
-  ) {
-    return false;
-  }
-  return true;
+  if (!isRecord(value)) return false;
+  const latitude = Number(value.latitude);
+  const longitude = Number(value.longitude);
+  const source = value.source;
+  return Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
+    Number.isFinite(longitude) && longitude >= -180 && longitude <= 180 &&
+    typeof value.city === "string" && value.city.length <= 160 &&
+    typeof value.state === "string" && value.state.length <= 160 &&
+    typeof value.stateCode === "string" && value.stateCode.length <= 16 &&
+    typeof value.countryCode === "string" && value.countryCode.length <= 8 &&
+    typeof value.timezone === "string" && value.timezone.length <= 80 &&
+    (source === "gps" || source === "ip" || source === "saved" || source === "fallback" || source === "manual") &&
+    Number.isFinite(Number(value.savedAt));
 }
 
 function readStoredWeather(): WeatherSnapshot | null {
@@ -137,19 +147,14 @@ export function isWeatherSnapshot(value: unknown): value is WeatherSnapshot {
   );
 }
 
-async function fetchJSON(url: URL, timeout = 9000): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } finally {
-    window.clearTimeout(timer);
-  }
+async function fetchJSON(url: URL, timeout = 9_000): Promise<unknown> {
+  const { response, payload } = await fetchJsonWithPolicy(url, {
+    allowedHosts: ["api.bigdatacloud.net", "api.open-meteo.com"],
+    timeoutMs: timeout,
+    maxBytes: 4_000_000,
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return payload;
 }
 
 function browserCoordinates(): Promise<GeolocationCoordinates> {
@@ -189,8 +194,8 @@ async function reverseLocation(
   );
   url.searchParams.set("localityLanguage", "pt");
   if (latitude !== undefined && longitude !== undefined) {
-    url.searchParams.set("latitude", String(latitude));
-    url.searchParams.set("longitude", String(longitude));
+    url.searchParams.set("latitude", latitude.toFixed(2));
+    url.searchParams.set("longitude", longitude.toFixed(2));
   }
 
   const payload = await fetchJSON(url);
@@ -207,20 +212,13 @@ async function reverseLocation(
       ? payload.principalSubdivisionCode.replace(/^BR-/, "")
       : "";
   return {
-    latitude: resolvedLatitude,
-    longitude: resolvedLongitude,
-    city: locationName(payload),
-    state:
-      typeof payload.principalSubdivision === "string"
-        ? payload.principalSubdivision
-        : "",
-    stateCode: subdivisionCode,
-    countryCode:
-      typeof payload.countryCode === "string" ? payload.countryCode : "",
-    timezone:
-      typeof payload.timezone === "string"
-        ? payload.timezone
-        : Intl.DateTimeFormat().resolvedOptions().timeZone,
+    latitude: roundPublicCoordinate(resolvedLatitude),
+    longitude: roundPublicCoordinate(resolvedLongitude),
+    city: sanitizeLocationText(locationName(payload), 160) || "Sua localização",
+    state: sanitizeLocationText(payload.principalSubdivision, 160),
+    stateCode: sanitizeLocationText(subdivisionCode, 16).toUpperCase(),
+    countryCode: sanitizeLocationText(payload.countryCode, 8).toUpperCase(),
+    timezone: sanitizeLocationText(payload.timezone, 80) || Intl.DateTimeFormat().resolvedOptions().timeZone,
     source: latitude === undefined ? "ip" : "gps",
     savedAt: Date.now(),
   };
@@ -268,8 +266,8 @@ export function describeWeatherCode(code: number): string {
 
 async function fetchWeather(location: StoredLocation): Promise<WeatherSnapshot> {
   const url = new URL("https://api.open-meteo.com/v1/forecast");
-  url.searchParams.set("latitude", String(location.latitude));
-  url.searchParams.set("longitude", String(location.longitude));
+  url.searchParams.set("latitude", location.latitude.toFixed(2));
+  url.searchParams.set("longitude", location.longitude.toFixed(2));
   url.searchParams.set(
     "current",
     "temperature_2m,apparent_temperature,weather_code,is_day",
@@ -427,13 +425,13 @@ export function useLocalWeather() {
     setStatus("loading");
     try {
       await loadLocation({
-        latitude,
-        longitude,
-        city: input.city.trim() || "Local selecionado",
-        state: input.state?.trim() ?? "",
-        stateCode: input.stateCode?.trim().replace(/^BR-/, "").toUpperCase() ?? "",
-        countryCode: input.countryCode?.trim().toUpperCase() ?? "BR",
-        timezone: input.timezone?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        latitude: roundPublicCoordinate(latitude),
+        longitude: roundPublicCoordinate(longitude),
+        city: sanitizeLocationText(input.city, 160) || "Local selecionado",
+        state: sanitizeLocationText(input.state, 160),
+        stateCode: sanitizeLocationText(input.stateCode, 16).replace(/^BR-/, "").toUpperCase(),
+        countryCode: sanitizeLocationText(input.countryCode, 8).toUpperCase() || "BR",
+        timezone: sanitizeLocationText(input.timezone, 80) || Intl.DateTimeFormat().resolvedOptions().timeZone,
         source: "manual",
         savedAt: Date.now(),
       });

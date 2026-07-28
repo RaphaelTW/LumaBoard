@@ -1,4 +1,5 @@
 import type { JsonRecord } from "./summary-types";
+import { safePublicHttpsUrl, sanitizePublicText } from "../security";
 
 export function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -9,19 +10,13 @@ export function finiteOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-export function stringOrNull(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+export function stringOrNull(value: unknown, maximumLength = 4_000): string | null {
+  const normalized = sanitizePublicText(value, maximumLength);
+  return normalized || null;
 }
 
-export function safeHttpUrl(value: unknown): string | null {
-  const candidate = stringOrNull(value);
-  if (!candidate) return null;
-  try {
-    const url = new URL(candidate);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
+export function safeHttpUrl(value: unknown, allowedHosts?: readonly string[]): string | null {
+  return safePublicHttpsUrl(value, allowedHosts ? { allowedHosts } : {});
 }
 
 export function normalizeText(value: string): string {

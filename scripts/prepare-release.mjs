@@ -54,4 +54,13 @@ replaceInFile("app/responsive.test.ts", [
   [/expect\(serviceWorker\)\.toContain\('const VERSION = ".*?";'\);/, `expect(serviceWorker).toContain('const VERSION = "${version}";');`],
 ]);
 
+replaceInFile("app/privacy-consent.test.ts", [
+  [/privacy and legal notice v\d+\.\d+\.\d+/, `privacy and legal notice v${version}`],
+]);
+
+replaceInFile("app/security-hardening.test.ts", [
+  [/security boundaries v\d+\.\d+\.\d+/, `security boundaries v${version}`],
+  [/expect\(packageJson\.version\)\.toBe\(".*?"\);/, `expect(packageJson.version).toBe("${version}");`],
+]);
+
 console.log(`Release metadata updated to ${version}.`);

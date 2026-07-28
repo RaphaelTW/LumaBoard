@@ -1,6 +1,6 @@
 import { fetchJson } from "./fetch-json";
 import type { EarthquakeItem, JsonRecord } from "./summary-types";
-import { finiteOrNull, isRecord, normalizeText, readNestedRecord, stringOrNull } from "./utils";
+import { finiteOrNull, isRecord, normalizeText, readNestedRecord, safeHttpUrl, stringOrNull } from "./utils";
 
 function latestSeriesValue(payload: unknown): { value: number | null; year: string | null } {
   if (!Array.isArray(payload)) return { value: null, year: null };
@@ -86,7 +86,7 @@ function parseEarthquake(feature: JsonRecord, latitude: number, longitude: numbe
     magnitude: finiteOrNull(properties.mag),
     place: stringOrNull(properties.place) ?? "Local não informado",
     time: Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null,
-    url: stringOrNull(properties.url) ?? "https://earthquake.usgs.gov/",
+    url: safeHttpUrl(properties.url, ["earthquake.usgs.gov"]) ?? "https://earthquake.usgs.gov/",
     distanceKm: Number.isFinite(eventLat) && Number.isFinite(eventLon) ? Math.round(haversineKm(latitude, longitude, eventLat, eventLon)) : null,
   };
 }

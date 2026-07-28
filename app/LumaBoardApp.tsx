@@ -81,6 +81,8 @@ import { useActiveView } from "./use-active-view";
 import { useAutomationAlerts } from "./use-automation-alerts";
 import { useAvatarProfile } from "./use-avatar-profile";
 import { useDashboardSync } from "./use-dashboard-sync";
+import { parseSafeJsonText } from "./import-security";
+import { safeParseJSON } from "./storage";
 
 const navItems: ShellNavItem[] = [
   { id: "overview", label: "Visão geral", mobileLabel: "Início", icon: Grid2X2 },
@@ -293,18 +295,38 @@ type SharedDisplayConfig = {
   focus: FocusSession;
 };
 
+const MAX_SHARED_DISPLAY_BYTES = 180_000;
+const MAX_SHARED_DISPLAY_ENCODED_LENGTH = Math.ceil(MAX_SHARED_DISPLAY_BYTES * 4 / 3) + 8;
+
+function sanitizeSharedText(value: unknown, maximumLength: number): string {
+  return typeof value === "string"
+    ? value.normalize("NFKC").replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximumLength)
+    : "";
+}
+
+function validSharedDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+  return date.getFullYear() === Number(match[1]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[3]);
+}
+
+function validSharedTime(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  return Boolean(match && Number(match[1]) <= 23 && Number(match[2]) <= 59);
+}
+
 function normalizeSharedAgendaEvent(value: unknown): AgendaEvent | null {
   if (!value || typeof value !== "object") return null;
   const event = value as Partial<AgendaEvent>;
-  if (
-    typeof event.id !== "string" ||
-    typeof event.title !== "string" ||
-    typeof event.date !== "string" ||
-    typeof event.time !== "string"
-  ) return null;
+  const id = sanitizeSharedText(event.id, 160);
+  const title = sanitizeSharedText(event.title, 240);
+  if (!id || !title || !validSharedDate(event.date) || !validSharedTime(event.time)) return null;
   return {
-    id: event.id,
-    title: event.title,
+    id,
+    title,
     date: event.date,
     time: event.time,
     kind: event.kind === "task" ? "task" : "reminder",
@@ -318,50 +340,61 @@ function normalizeSharedAgendaEvent(value: unknown): AgendaEvent | null {
     category: event.category === "work" || event.category === "health" || event.category === "finance" || event.category === "study" || event.category === "other" ? event.category : "personal",
     color: event.color === "amber" || event.color === "cyan" || event.color === "rose" || event.color === "slate" ? event.color : "moss",
     completedDates: Array.isArray(event.completedDates)
-      ? event.completedDates.filter((item): item is string => typeof item === "string")
+      ? Array.from(new Set(event.completedDates.filter(validSharedDate))).slice(-800)
       : [],
   };
 }
 
-function isSharedFocus(value: unknown): value is FocusSession {
-  if (!value || typeof value !== "object") return false;
+function normalizeSharedFocus(value: unknown): FocusSession | null {
+  if (!value || typeof value !== "object") return null;
   const focus = value as Partial<FocusSession>;
-  return (
-    typeof focus.project === "string" &&
-    typeof focus.task === "string" &&
-    typeof focus.durationMinutes === "number" &&
-    Number.isFinite(focus.durationMinutes) &&
-    typeof focus.remainingSeconds === "number" &&
-    Number.isFinite(focus.remainingSeconds) &&
-    typeof focus.running === "boolean" &&
-    (focus.endsAt === null || (typeof focus.endsAt === "number" && Number.isFinite(focus.endsAt)))
-  );
+  const project = sanitizeSharedText(focus.project, 160);
+  const task = sanitizeSharedText(focus.task, 240);
+  const durationMinutes = Number(focus.durationMinutes);
+  const remainingSeconds = Number(focus.remainingSeconds);
+  if (!project || !task || !Number.isFinite(durationMinutes) || !Number.isFinite(remainingSeconds) || typeof focus.running !== "boolean") return null;
+  const duration = Math.min(120, Math.max(1, Math.round(durationMinutes)));
+  const maximumSeconds = duration * 60;
+  const endsAt = focus.endsAt === null || focus.endsAt === undefined
+    ? null
+    : Number.isFinite(Number(focus.endsAt)) ? Number(focus.endsAt) : null;
+  return {
+    project,
+    task,
+    durationMinutes: duration,
+    remainingSeconds: Math.min(maximumSeconds, Math.max(0, Math.round(remainingSeconds))),
+    running: focus.running,
+    endsAt,
+  };
 }
 
 function decodeDisplayConfig(encoded: string): SharedDisplayConfig | null {
   try {
+    if (!encoded || encoded.length > MAX_SHARED_DISPLAY_ENCODED_LENGTH || encoded.length % 4 === 1 || !/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
     const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
     const binary = window.atob(padded);
     const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (bytes.byteLength > MAX_SHARED_DISPLAY_BYTES) return null;
+    const value = parseSafeJsonText(new TextDecoder().decode(bytes), { maxBytes: MAX_SHARED_DISPLAY_BYTES, maxArrayItems: 256, maxStringLength: 10_000 });
     if (!value || typeof value !== "object") return null;
     const candidate = value as Partial<SharedDisplayConfig>;
-    if (!isSharedFocus(candidate.focus)) return null;
+    const normalizedFocus = normalizeSharedFocus(candidate.focus);
+    if (!normalizedFocus) return null;
     const normalizedEvent = candidate.event === null || candidate.event === undefined
       ? null
       : normalizeSharedAgendaEvent(candidate.event);
     if (candidate.event !== null && candidate.event !== undefined && !normalizedEvent) return null;
-    const remainingSeconds = candidate.focus.running && candidate.focus.endsAt
-      ? Math.max(0, Math.ceil((candidate.focus.endsAt - Date.now()) / 1000))
-      : candidate.focus.remainingSeconds;
+    const remainingSeconds = normalizedFocus.running && normalizedFocus.endsAt
+      ? Math.max(0, Math.min(normalizedFocus.durationMinutes * 60, Math.ceil((normalizedFocus.endsAt - Date.now()) / 1000)))
+      : normalizedFocus.remainingSeconds;
     return {
       event: normalizedEvent,
       focus: {
-        ...candidate.focus,
+        ...normalizedFocus,
         remainingSeconds,
-        running: candidate.focus.running && remainingSeconds > 0,
-        endsAt: candidate.focus.running && remainingSeconds > 0 ? candidate.focus.endsAt : null,
+        running: normalizedFocus.running && remainingSeconds > 0,
+        endsAt: normalizedFocus.running && remainingSeconds > 0 ? normalizedFocus.endsAt : null,
       },
     };
   } catch {
@@ -634,7 +667,7 @@ export function LumaBoardApp() {
   useEffect(() => {
     const readEnabled = () => {
       try {
-        const stored: unknown = JSON.parse(window.localStorage.getItem("lumaboard-plugins") ?? "null");
+        const stored = safeParseJSON(window.localStorage.getItem("lumaboard-plugins"));
         return normalizeEnabledPublicPlugins(stored);
       } catch {
         return DEFAULT_PUBLIC_PLUGINS;
@@ -900,7 +933,7 @@ export function LumaBoardApp() {
             <div className="pairing-copy"><span className="pair-icon"><Monitor /></span><div><h3>Compartilhe layouts e programação sem conta</h3><p>O link transporta os layouts, widgets e playlists. Agenda, preferências pessoais e caches permanecem somente no navegador de origem.</p></div></div>
             <div className="privacy-note"><Copy /><span>A configuração vai no fragmento <code>#config</code> da URL e não é armazenada pelo Netlify.</span></div>
             <button className="button primary full" onClick={() => { void copyDisplayLink(); setModal(null); }}><Copy /> Copiar link do display</button>
-            <a className="button secondary full" href="/display" target="_blank" rel="noreferrer"><Monitor /> Abrir modo display</a>
+            <a className="button secondary full" href="/display" target="_blank" rel="noopener noreferrer"><Monitor /> Abrir modo display</a>
           </div>
         </Modal>
       )}

@@ -25,7 +25,8 @@ describe("PWA assets", () => {
     const activateStart = worker.indexOf('addEventListener("activate"');
     const installBlock = worker.slice(installStart, activateStart);
     expect(installBlock).not.toContain("skipWaiting");
-    expect(worker).toContain('event.data?.type === "SKIP_WAITING"');
+    expect(worker).toContain("ALLOWED_MESSAGE_TYPES");
+    expect(worker).toContain('type === "SKIP_WAITING"');
     expect(worker).toContain("cachePage");
   });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { safeParseJSON } from "./storage";
 
 export const CONSENT_KEY = "lumaboard-consent-v1";
 export const LEGAL_ACCEPTANCE_KEY = "lumaboard-legal-acceptance-v1";
@@ -35,9 +36,20 @@ export const defaultConsentPreferences: ConsentPreferences = {
 export function readConsentPreferences(): ConsentPreferences | null {
   if (typeof window === "undefined") return null;
   try {
-    const value = JSON.parse(window.localStorage.getItem(CONSENT_KEY) ?? "null") as Partial<ConsentPreferences> | null;
+    const value = safeParseJSON(window.localStorage.getItem(CONSENT_KEY)) as Partial<ConsentPreferences> | null;
     if (!value || value.version !== PRIVACY_VERSION) return null;
-    return { ...defaultConsentPreferences, ...value, necessary: true };
+    const updatedAt = typeof value.updatedAt === "string" && value.updatedAt.length <= 64 && !Number.isNaN(Date.parse(value.updatedAt))
+      ? new Date(value.updatedAt).toISOString()
+      : "";
+    return {
+      version: PRIVACY_VERSION,
+      necessary: true,
+      preferences: value.preferences === true,
+      externalContent: value.externalContent === true,
+      analytics: false,
+      advertising: false,
+      updatedAt,
+    };
   } catch {
     return null;
   }

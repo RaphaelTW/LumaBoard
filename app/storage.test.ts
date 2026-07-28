@@ -70,6 +70,23 @@ describe("local backup storage", () => {
     expect(backup.data["lumaboard-news-state-v1"]).toEqual({ readIds: ["hn-1"], savedIds: ["dev-2"] });
   });
 
+
+  it("excludes consent, legal acknowledgement and diagnostics from backups", () => {
+    writeStoredValue("lumaboard-consent-v1", { necessary: true, externalContent: false });
+    writeStoredValue("lumaboard-legal-acceptance-v1", { acknowledgedAt: "2026-07-28T12:00:00.000Z" });
+    writeStoredValue("lumaboard-client-errors-v1", [{ message: "local path" }]);
+    writeStoredValue("lumaboard-performance-v1", { duration: 10 });
+    writeStoredValue("lumaboard-storage-issues-v1", [{ key: "x" }]);
+    const backup = exportLocalBackup();
+    for (const key of ["lumaboard-consent-v1", "lumaboard-legal-acceptance-v1", "lumaboard-client-errors-v1", "lumaboard-performance-v1", "lumaboard-storage-issues-v1"]) {
+      expect(backup.data[key as keyof typeof backup.data]).toBeUndefined();
+    }
+  });
+
+  it("rejects legacy backups whose decoded values exceed structural limits", () => {
+    expect(migrateBackup({ studio: JSON.stringify({ items: Array.from({ length: 6000 }, (_, index) => index) }) })).toBeNull();
+  });
+
   it("quarantines corrupted values instead of crashing", () => {
     memory.set("lumaboard-focus", "{not-json");
     const value = readStoredValue("lumaboard-focus", (candidate): candidate is { task: string } => Boolean(candidate && typeof candidate === "object" && "task" in candidate), { task: "Seguro" });

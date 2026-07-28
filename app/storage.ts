@@ -1,5 +1,7 @@
 "use client";
 
+import { hasSafeJsonStructure } from "./import-security";
+
 export const STORAGE_VERSION = 7;
 export const MAX_STORAGE_ITEM_BYTES = 1_500_000;
 export const MAX_BACKUP_BYTES = 4_500_000;
@@ -91,6 +93,15 @@ export const managedKeys: StorageKey[] = [
   "lumaboard-template-favorites-v1",
 ];
 
+const protectedBackupKeys = new Set<StorageKey>([
+  "lumaboard-consent-v1",
+  "lumaboard-legal-acceptance-v1",
+  "lumaboard-storage-issues-v1",
+  "lumaboard-client-errors-v1",
+  "lumaboard-performance-v1",
+  "lumaboard-backup-meta",
+]);
+
 function byteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
 }
@@ -98,8 +109,7 @@ function byteLength(value: string): number {
 function recordIssue(issue: StorageIssue) {
   if (typeof window === "undefined") return;
   try {
-    const raw = window.localStorage.getItem("lumaboard-storage-issues-v1");
-    const previous = raw ? (JSON.parse(raw) as unknown) : [];
+    const previous = safeParseJSON(window.localStorage.getItem("lumaboard-storage-issues-v1"));
     const issues = Array.isArray(previous) ? previous.filter((item) => isRecord(item)).slice(-19) : [];
     window.localStorage.setItem("lumaboard-storage-issues-v1", JSON.stringify([...issues, issue]));
   } catch {
@@ -108,9 +118,10 @@ function recordIssue(issue: StorageIssue) {
 }
 
 export function safeParseJSON(value: string | null): unknown {
-  if (!value) return null;
+  if (!value || byteLength(value) > MAX_STORAGE_ITEM_BYTES) return null;
   try {
-    return JSON.parse(value) as unknown;
+    const parsed: unknown = JSON.parse(value);
+    return hasSafeJsonStructure(parsed, { maxBytes: MAX_STORAGE_ITEM_BYTES }) ? parsed : null;
   } catch {
     return null;
   }
@@ -128,6 +139,11 @@ export function readStoredValue<T>(
   if (typeof window === "undefined") return fallback;
   const raw = window.localStorage.getItem(key);
   if (!raw) return fallback;
+  if (byteLength(raw) > MAX_STORAGE_ITEM_BYTES) {
+    window.localStorage.removeItem(key);
+    recordIssue({ key, reason: "too-large", occurredAt: new Date().toISOString() });
+    return fallback;
+  }
   const parsed = safeParseJSON(raw);
   if (validate(parsed)) return parsed;
   const quarantineKey = `lumaboard-corrupt-${key}-${Date.now()}`;
@@ -175,10 +191,11 @@ export function validateBackupPayload(value: unknown): value is BackupPayload {
   if (!isRecord(value)) return false;
   if (typeof value.version !== "number" || value.version < 1 || value.version > STORAGE_VERSION) return false;
   if (typeof value.exportedAt !== "string" || Number.isNaN(Date.parse(value.exportedAt))) return false;
-  if (!isRecord(value.data)) return false;
+  if (!isRecord(value.data) || !hasSafeJsonStructure(value, { maxBytes: MAX_BACKUP_BYTES })) return false;
   if (!Object.keys(value.data).every((key) => managedKeys.includes(key as StorageKey))) return false;
   try {
-    return byteLength(JSON.stringify(value)) <= MAX_BACKUP_BYTES;
+    if (byteLength(JSON.stringify(value)) > MAX_BACKUP_BYTES) return false;
+    return Object.values(value.data).every((item) => byteLength(JSON.stringify(item)) <= MAX_STORAGE_ITEM_BYTES);
   } catch {
     return false;
   }
@@ -198,22 +215,23 @@ export function migrateBackup(value: unknown): BackupPayload | null {
 
   for (const [legacyKey, storageKey] of legacyMap) {
     const item = value[legacyKey];
-    if (typeof item === "string") legacyData[storageKey] = safeParseJSON(item);
-    else if (item !== undefined) legacyData[storageKey] = item;
+    const parsed = typeof item === "string" ? safeParseJSON(item) : item;
+    if (parsed !== undefined && parsed !== null) legacyData[storageKey] = parsed;
   }
 
   if (Object.keys(legacyData).length === 0) return null;
-  return {
-    version: STORAGE_VERSION,
-    exportedAt: typeof value.exportedAt === "string" ? value.exportedAt : new Date().toISOString(),
-    data: legacyData,
-  };
+  const exportedAt = typeof value.exportedAt === "string" && !Number.isNaN(Date.parse(value.exportedAt))
+    ? new Date(value.exportedAt).toISOString()
+    : new Date().toISOString();
+  const candidate: BackupPayload = { version: STORAGE_VERSION, exportedAt, data: legacyData };
+  return validateBackupPayload(candidate) ? candidate : null;
 }
 
 export function exportLocalBackup(): BackupPayload {
   const data: Partial<Record<StorageKey, unknown>> = {};
   if (typeof window !== "undefined") {
     for (const key of managedKeys) {
+      if (protectedBackupKeys.has(key)) continue;
       const parsed = safeParseJSON(window.localStorage.getItem(key));
       if (parsed !== null) data[key] = parsed;
     }
@@ -226,7 +244,7 @@ export function importLocalBackup(payload: unknown): { imported: number; skipped
   let imported = 0;
   let skipped = 0;
   for (const [key, value] of Object.entries(payload.data)) {
-    if (!managedKeys.includes(key as StorageKey)) {
+    if (!managedKeys.includes(key as StorageKey) || protectedBackupKeys.has(key as StorageKey)) {
       skipped += 1;
       continue;
     }

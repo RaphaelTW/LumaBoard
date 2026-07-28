@@ -26,6 +26,8 @@ describe("weather helpers", () => {
       savedAt: 1,
     })).toBe(true);
     expect(isStoredLocation({ latitude: "x", longitude: -46.6, city: "São Paulo" })).toBe(false);
+    expect(isStoredLocation({ latitude: 91, longitude: -46.6, city: "São Paulo", state: "SP", stateCode: "SP", countryCode: "BR", timezone: "America/Sao_Paulo", source: "gps", savedAt: 1 })).toBe(false);
+    expect(isStoredLocation({ latitude: -23.5, longitude: 181, city: "São Paulo", state: "SP", stateCode: "SP", countryCode: "BR", timezone: "America/Sao_Paulo", source: "gps", savedAt: 1 })).toBe(false);
   });
 
   it("falls back to São Paulo when location services fail", () => {

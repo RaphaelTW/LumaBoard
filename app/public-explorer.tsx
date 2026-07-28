@@ -14,6 +14,8 @@ import {
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { hasExternalContentConsent, openPrivacyPreferences, useExternalContentConsent } from "./privacy-preferences";
 import { isRecord, readStoredValue, writeStoredValue } from "./storage";
+import { fetchJsonWithPolicy } from "./client-fetch";
+import { safeExternalUrl } from "./url-security";
 
 const EXPLORER_KEY = "lumaboard-public-explorer-v1";
 
@@ -99,8 +101,7 @@ function formatNumber(value: unknown, suffix = ""): string {
 }
 
 function resultLink(item: SearchResult): string {
-  const url = text(item.url);
-  return /^https:\/\//.test(url) ? url : "";
+  return safeExternalUrl(text(item.url)) ?? "";
 }
 
 function ResultCard({
@@ -159,7 +160,7 @@ function ResultCard({
             Nutri-Score {text(item.nutriScore) || "—"} · {formatNumber(item.caloriesKcal100g, " kcal/100g")} · açúcares {formatNumber(item.sugars100g, " g")}
           </small>
         </div>
-        {url && <a className="button secondary" href={url} target="_blank" rel="noreferrer">Abrir <ExternalLink /></a>}
+        {url && <a className="button secondary" href={url} target="_blank" rel="noopener noreferrer">Abrir <ExternalLink /></a>}
       </article>
     );
   }
@@ -188,7 +189,7 @@ function ResultCard({
         <span>{description || "Informação pública"}</span>
         {detail && <small>{detail}</small>}
       </div>
-      {url && <a className="button secondary" href={url} target="_blank" rel="noreferrer">Abrir <ExternalLink /></a>}
+      {url && <a className="button secondary" href={url} target="_blank" rel="noopener noreferrer">Abrir <ExternalLink /></a>}
     </article>
   );
 }
@@ -249,8 +250,7 @@ export function PublicExplorer({
       const url = new URL("/api/public/search", window.location.origin);
       url.searchParams.set("type", cache.type);
       url.searchParams.set("q", cleanQuery);
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
-      const payload: unknown = await response.json();
+      const { response, payload } = await fetchJsonWithPolicy(url, { localPublicApi: true, timeoutMs: 15_000, maxBytes: 4_000_000 });
       if (!response.ok || !isSearchResponse(payload)) {
         const message = isRecord(payload) && typeof payload.error === "string"
           ? payload.error
@@ -341,7 +341,7 @@ export function PublicExplorer({
         </div>
 
         <footer className="public-data-footer">
-          <span>Open-Meteo Geocoding · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a> · Open Library · Wikimedia · TVmaze · Jikan · Open Food Facts</span>
+          <span>Open-Meteo Geocoding · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · Open Library · Wikimedia · TVmaze · Jikan · Open Food Facts</span>
           <span>Nenhuma consulta é gravada no servidor.</span>
         </footer>
       </article>

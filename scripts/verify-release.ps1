@@ -33,10 +33,11 @@ if ($LASTEXITCODE -ne 0) {
   throw "A instalação das dependências falhou com código $LASTEXITCODE."
 }
 
-Write-Host "Executando lint, testes e build..." -ForegroundColor Cyan
+Write-Host "Executando varredura local, lint, testes e build..." -ForegroundColor Cyan
 npm run check
 if ($LASTEXITCODE -ne 0) {
   throw "A validação da release falhou com código $LASTEXITCODE."
 }
 
 Write-Host "Validação concluída com sucesso." -ForegroundColor Green
+Write-Host "Para a auditoria online do registro npm, execute: npm run security:full" -ForegroundColor Yellow

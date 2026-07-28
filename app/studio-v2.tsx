@@ -41,6 +41,7 @@ import {
   type PlaylistRule,
 } from "./dashboard-config";
 import { DashboardRenderer, type DashboardRenderData } from "./dashboard-renderer";
+import { readSafeJsonFile } from "./import-security";
 
 const widgetOptions: Array<{ type: DashboardWidgetType; label: string; icon: typeof Clock3 }> = [
   { type: "clock", label: "Relógio", icon: Clock3 },
@@ -251,7 +252,7 @@ export function StudioModuleV2({ renderData, onToast }: { renderData: DashboardR
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const parsed: unknown = JSON.parse(await file.text());
+      const parsed = await readSafeJsonFile(file, { maxBytes: 1_500_000, maxArrayItems: 256 });
       const next = normalizeDashboardState(parsed);
       persist(next, "Layouts e programação importados.");
       setLayoutId(next.settings.defaultLayoutId);
@@ -322,8 +323,8 @@ export function StudioModuleV2({ renderData, onToast }: { renderData: DashboardR
 
           <div className="tool-panel-title spaced"><strong>Compartilhar</strong><Copy /></div>
           <button className="button primary full" onClick={() => void createLink()}><Copy /> Copiar link</button>
-          {shareUrl && <div className="share-box-v2"><input readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />{shareUrl.length <= 1800 ? <img src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shareUrl)}`} alt="QR code do display" loading="lazy" referrerPolicy="no-referrer" /> : <small>Este layout gerou um link grande demais para um QR confiável. Exporte o JSON da tela e importe-o no outro aparelho.</small>}<small>O QR é gerado somente quando esta caixa é aberta. A configuração viaja dentro do link.</small></div>}
-          <a className="button secondary full" href="/display" target="_blank" rel="noreferrer"><Eye /> Abrir modo display</a>
+          {shareUrl && <div className="share-box-v2"><input readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} /><small>O link contém a configuração local da tela. Copie-o diretamente ou exporte o arquivo JSON para outro aparelho. O LumaBoard não envia o conteúdo a um serviço externo de QR code.</small></div>}
+          <a className="button secondary full" href="/display" target="_blank" rel="noopener noreferrer"><Eye /> Abrir modo display</a>
         </aside>
       </div>
     </section>
@@ -411,7 +412,7 @@ export function PlaylistsModuleV2({ onToast, city }: { onToast: ToastHandler; ci
             <label className="check-row"><input type="checkbox" checked={state.settings.showStatus} onChange={(event) => persist({ ...state, settings: { ...state.settings, showStatus: event.target.checked } })} /> Mostrar status no rodapé</label>
           </article>
           <article className="panel simulation-card-v2"><span className="eyebrow">SIMULAÇÃO</span><strong>{String(simulationHour).padStart(2, "0")}:00</strong><input type="range" min="0" max="23" value={simulationHour} onChange={(event) => setSimulationHour(Number(event.target.value))} /><div><Monitor /><span><strong>{simulatedLayout.name}</strong><small>{state.playlist.some((rule) => rule.layoutId === simulatedLayout.id && rule.enabled) ? "Selecionada pela programação" : "Tela padrão"}</small></span></div></article>
-          <a className="button primary full" href="/display" target="_blank" rel="noreferrer"><Eye /> Abrir display real</a>
+          <a className="button primary full" href="/display" target="_blank" rel="noopener noreferrer"><Eye /> Abrir display real</a>
         </aside>
       </div>
     </section>

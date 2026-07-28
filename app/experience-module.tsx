@@ -24,6 +24,7 @@ import { useLocalWidgets } from "./local-widgets";
 import { APP_VERSION, usePWA } from "./pwa-manager";
 import { exportLocalBackup, importLocalBackup, migrateBackup, resetSettingsPreservingPersonalData, safeParseJSON, storageUsage, writeStoredValue, type BackupPayload } from "./storage";
 import type { PublicSummary } from "./public-data";
+import { readSafeJsonFile } from "./import-security";
 
 export type PublicStatus = "idle" | "loading" | "ready" | "stale" | "error";
 
@@ -150,15 +151,13 @@ export function ExperienceModule({ summary, publicStatus, weatherStatus, onToast
   const importBackup = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || file.size > 4_500_000) return onToast("O backup deve ter até 4,5 MB.");
-    const reader = new FileReader();
-    reader.onload = () => {
-      const migrated = migrateBackup(safeParseJSON(String(reader.result)));
-      if (!migrated) return onToast("Backup inválido ou incompatível.");
+    void readSafeJsonFile(file).then((payload) => {
+      const migrated = migrateBackup(payload);
+      if (!migrated) throw new Error("invalid backup");
       const result = importLocalBackup(migrated as BackupPayload);
       onToast(`${result.imported} áreas restauradas; ${result.skipped} ignoradas.`);
       setUsage(storageUsage());
-    };
-    reader.readAsText(file);
+    }).catch(() => onToast("Backup inválido ou incompatível."));
     event.target.value = "";
   };
 

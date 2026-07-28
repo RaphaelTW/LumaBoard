@@ -6,6 +6,7 @@ import { loadEarthquakes, hasCoordinates, loadIbge } from "./geo";
 import { loadNews } from "./news";
 import { loadArtwork, loadFeaturedBook, loadTv, loadWikipedia } from "./sources/content";
 import type { PublicSummary } from "./summary-types";
+import { consumeRateLimit, normalizeCoordinate, normalizePublicQuery, normalizeTimezone, rateLimitHeaders, rateLimitResponse, rejectCrossSiteRequest } from "../security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,19 +43,24 @@ const warningLabels = [
   "programação de TV",
 ];
 
-function resolveTimezone(value: string): string {
-  return /^[A-Za-z_+-]+(?:\/[A-Za-z0-9_+-]+)+$/.test(value)
-    ? value
-    : "America/Sao_Paulo";
-}
-
 export async function GET(request: NextRequest) {
-  const latitude = Number(request.nextUrl.searchParams.get("lat"));
-  const longitude = Number(request.nextUrl.searchParams.get("lon"));
-  const coordinatesReady = hasCoordinates(latitude, longitude);
-  const city = (request.nextUrl.searchParams.get("city") ?? "").trim().slice(0, 100);
-  const stateCode = (request.nextUrl.searchParams.get("state") ?? "").trim().toUpperCase().replace(/^BR-/, "").slice(0, 2);
-  const timezone = resolveTimezone((request.nextUrl.searchParams.get("tz") ?? "").trim().slice(0, 80));
+  const crossSite = rejectCrossSiteRequest(request);
+  if (crossSite) return crossSite;
+  const rateLimit = consumeRateLimit(request, { scope: "public-summary", limit: 12, windowMs: 60_000 });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
+
+  const latitudeRaw = request.nextUrl.searchParams.get("lat");
+  const longitudeRaw = request.nextUrl.searchParams.get("lon");
+  const latitude = normalizeCoordinate(latitudeRaw, -90, 90);
+  const longitude = normalizeCoordinate(longitudeRaw, -180, 180);
+  const hasAnyCoordinate = latitudeRaw !== null || longitudeRaw !== null;
+  if (hasAnyCoordinate && (latitude === null || longitude === null)) {
+    return NextResponse.json({ error: "Coordenadas inválidas" }, { status: 400, headers: { ...rateLimitHeaders(rateLimit), "Cache-Control": "private, no-store" } });
+  }
+  const coordinatesReady = latitude !== null && longitude !== null && hasCoordinates(latitude, longitude);
+  const city = normalizePublicQuery(request.nextUrl.searchParams.get("city") ?? "", 80);
+  const stateCode = normalizePublicQuery(request.nextUrl.searchParams.get("state") ?? "", 8).toUpperCase().replace(/^BR-/, "").replace(/[^A-Z]/g, "").slice(0, 2);
+  const timezone = normalizeTimezone(request.nextUrl.searchParams.get("tz") ?? "");
   const year = new Date().getFullYear();
 
   const results = await Promise.allSettled([
@@ -62,14 +68,14 @@ export async function GET(request: NextRequest) {
     loadAnime(),
     loadRates(),
     loadHoliday(year),
-    coordinatesReady ? loadAirQuality(latitude, longitude) : Promise.resolve(emptyAir),
+    coordinatesReady ? loadAirQuality(latitude!, longitude!) : Promise.resolve(emptyAir),
     loadEconomy(),
     loadIbge(city, stateCode),
-    coordinatesReady ? loadEarthquakes(latitude, longitude) : Promise.resolve(emptyEarthquakes),
-    coordinatesReady ? loadElevation(latitude, longitude) : Promise.resolve(null),
-    coordinatesReady ? loadFlood(latitude, longitude) : Promise.resolve(emptyFlood),
-    coordinatesReady ? loadMarine(latitude, longitude) : Promise.resolve(emptyMarine),
-    coordinatesReady ? loadSun(latitude, longitude, timezone) : Promise.resolve(emptySun),
+    coordinatesReady ? loadEarthquakes(latitude!, longitude!) : Promise.resolve(emptyEarthquakes),
+    coordinatesReady ? loadElevation(latitude!, longitude!) : Promise.resolve(null),
+    coordinatesReady ? loadFlood(latitude!, longitude!) : Promise.resolve(emptyFlood),
+    coordinatesReady ? loadMarine(latitude!, longitude!) : Promise.resolve(emptyMarine),
+    coordinatesReady ? loadSun(latitude!, longitude!, timezone) : Promise.resolve(emptySun),
     loadArtwork(),
     loadFeaturedBook(),
     loadWikipedia(),
@@ -150,11 +156,13 @@ export async function GET(request: NextRequest) {
     warnings,
   };
 
+  const locationScoped = hasAnyCoordinate || Boolean(city) || Boolean(stateCode);
   return NextResponse.json(payload, {
     headers: {
-      "Cache-Control": "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
+      "Cache-Control": locationScoped ? "private, no-store" : "public, max-age=300, s-maxage=900, stale-while-revalidate=86400",
       "X-LumaBoard-Storage": "stateless",
       "X-Robots-Tag": "noindex",
+      ...rateLimitHeaders(rateLimit),
     },
   });
 }
