@@ -1,60 +1,44 @@
-# Protocolo de display sem conta
+# Protocolo de dispositivos do LumaBoard v1.8.6
 
-O LumaBoard 1.4 não possui banco de dados, autenticação ou servidor de pareamento. O fluxo suportado usa navegador, `localStorage`, Functions sem estado e uma URL compartilhável.
+O LumaBoard funciona como uma PWA local-first. Não há conta, pareamento em nuvem, banco de dados, servidor de sincronização ou canal real entre dispositivos. Cada navegador mantém seu próprio `localStorage`, Cache Storage e permissões.
 
-## 1. Gerar o link
+## Registro local
 
-O painel cria uma URL no formato:
+Dispositivos cadastrados no módulo de dispositivos são registros locais salvos no navegador. Eles ajudam a organizar perfis como TV, desktop, tablet, celular, e-paper ou Raspberry Pi, mas não criam conexão remota. Em outro navegador ou aparelho, o cadastro precisa ser recriado, importado por backup JSON ou recebido por link de configuração quando aplicável.
+
+## Modo display
+
+O modo `/display` lê layouts, playlists, tema e preferências do armazenamento local. Ele pode usar tela cheia, Wake Lock quando disponível, rotação de layouts, pausa, anterior/próximo e cursor oculto. A URL compartilhável pode carregar uma configuração embutida no hash, por exemplo:
 
 ```text
-https://seu-site.netlify.app/?display=1#config=BASE64URL
+https://seu-site.netlify.app/display#config=BASE64URL
 ```
 
-O objeto codificado contém apenas o próximo compromisso e a sessão de foco. O fragmento `#config` não é enviado na requisição HTTP; ele é lido pelo navegador do display.
+Esse link transporta dados no próprio endereço. Ele não busca uma configuração privada em servidor.
 
-## 2. Dados dinâmicos
+## Playlists, layouts e temas
 
-Cada display resolve sua própria localização e consulta:
+Layouts, widgets, playlists, temas oficiais, temas personalizados e favoritos de templates ficam no navegador. Exportação e importação manual são os mecanismos seguros para mover configurações entre aparelhos. Não altere nomes de chaves de `localStorage` sem migração, pois isso pode isolar dados antigos do usuário.
 
-- Open-Meteo e BigDataCloud para clima;
-- `GET /api/public/summary?lat={latitude}&lon={longitude}&city={cidade}&state={UF}&tz={fuso}` para os cartões automáticos;
-- `GET /api/public/search?type={tipo}&q={consulta}` somente quando o usuário faz uma pesquisa.
+## Conteúdo externo e privacidade
 
-As duas rotas são Functions sem estado. Elas não identificam o display, não criam sessão e não salvam dados.
+Clima, notícias, música, anime, arte, livros, TV, geocodificação e pesquisas públicas são conteúdo externo opcional. Quando a preferência Conteúdo externo está desativada, o app não inicia novas chamadas opcionais e usa somente recursos locais ou cache já salvo quando existir. A reativação restaura o carregamento sem apagar dados.
 
-## 3. Atualização e fallback
+Chamadas iniciadas manualmente, como pesquisar uma cidade ou atualizar música, mostram mensagem clara caso o consentimento esteja desativado. Recursos locais como agenda, Pomodoro, layouts, temas, backups, templates locais, páginas legais e modo display continuam funcionando.
 
-O navegador salva o último clima, o último resumo e as últimas pesquisas no `localStorage`. O endpoint agregador usa cache HTTP e devolve resultados parciais quando apenas uma fonte falha.
+## PWA, cache e atualização
 
-## 4. Localização
+O service worker guarda páginas e assets necessários para melhorar o uso offline. O cache da versão 1.8.6 substitui caches antigos do LumaBoard durante a ativação. Páginas legais e telas principais devem permanecer disponíveis quando já armazenadas, mas respostas de APIs externas podem expirar, falhar ou ficar ausentes conforme conexão e consentimento.
 
-O usuário pode:
+Quando uma nova versão do service worker é instalada, o app exibe aviso de atualização e pode limpar caches de runtime sem apagar dados pessoais do `localStorage`.
 
-1. permitir a localização da máquina;
-2. usar a localização aproximada por IP;
-3. pesquisar uma cidade e aplicá-la ao painel;
-4. voltar a usar a localização da máquina.
+## Limitações por tipo de tela
 
-A localização manual permanece naquele navegador até ser substituída.
+- TV e modo display: ideal para visualização contínua; depende do navegador manter a aba/PWA ativa.
+- Desktop: edição completa de layouts, biblioteca, backups e diagnóstico.
+- Tablet e celular: experiência responsiva com navegação móvel e os mesmos dados locais da origem.
+- E-paper/e-reader/Raspberry Pi: recomendado com layouts simples, menos animação e atualização controlada.
 
-## 5. Compatibilidade
+## Migração entre dispositivos
 
-| Dispositivo | Situação |
-| --- | --- |
-| Navegador desktop/mobile | suportado |
-| Raspberry Pi em modo quiosque | suportado |
-| Kindle/Kobo com navegador moderno | depende do motor do navegador |
-| ESP32 e-paper | requer firmware ou serviço de renderização adicional |
-
-## 6. O que exigiria backend persistente
-
-Pareamento por código, sincronização instantânea, telemetria, revogação de dispositivos e envio remoto de frames exigem estado compartilhado. Essas funções não são simuladas.
-
-## 7. Segurança
-
-- Não coloque senhas, tokens ou dados sensíveis no link.
-- Compartilhe o link somente com quem pode ver o compromisso e a tarefa.
-- Use HTTPS.
-- Mantenha as Functions com provedores fixos.
-- Não transforme a rota de pesquisa em proxy de URL arbitrária.
-- Respeite limites, licenças e atribuições das APIs públicas.
+Use backup JSON, exportação de layout/tema ou link de display para transportar dados. Como não há backend, não existe conflito automático, merge entre navegadores ou restauração remota. O usuário deve escolher qual arquivo importar e manter cópias quando os dados forem importantes.

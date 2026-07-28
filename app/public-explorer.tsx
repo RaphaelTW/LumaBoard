@@ -12,6 +12,7 @@ import {
   Globe2,
 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { hasExternalContentConsent, openPrivacyPreferences, useExternalContentConsent } from "./privacy-preferences";
 import { isRecord, readStoredValue, writeStoredValue } from "./storage";
 
 const EXPLORER_KEY = "lumaboard-public-explorer-v1";
@@ -205,6 +206,7 @@ export function PublicExplorer({
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const externalContentAllowed = useExternalContentConsent();
 
   useEffect(() => {
     const saved = readStoredValue<ExplorerCache>(EXPLORER_KEY, isExplorerCache, emptyCache);
@@ -235,6 +237,10 @@ export function PublicExplorer({
     const cleanQuery = query.trim();
     if (cleanQuery.length < 2) {
       setError("Digite pelo menos dois caracteres.");
+      return;
+    }
+    if (!hasExternalContentConsent()) {
+      setError("Conteúdo externo desativado. Reative em Privacidade para pesquisar APIs públicas.");
       return;
     }
     setLoading(true);
@@ -279,7 +285,7 @@ export function PublicExplorer({
           <h2>Pesquise sem conta e sem chave.</h2>
         </div>
         <div className="heading-actions">
-          <button className="button secondary" onClick={() => void onUseMachineLocation()}><LocateFixed /> Usar localização da máquina</button>
+          <button className="button secondary" onClick={() => externalContentAllowed ? void onUseMachineLocation() : openPrivacyPreferences()}><LocateFixed /> {externalContentAllowed ? "Usar localização da máquina" : "Ativar conteúdo externo"}</button>
           <span className="status-chip">CACHE LOCAL</span>
         </div>
       </header>
@@ -310,11 +316,12 @@ export function PublicExplorer({
               aria-label={`Pesquisar ${activeTab.label}`}
             />
           </label>
-          <button className="button primary" disabled={loading}>
+          <button className="button primary" disabled={loading || !externalContentAllowed}>
             <Search /> {loading ? "Consultando…" : "Pesquisar"}
           </button>
         </form>
 
+        {!externalContentAllowed && <p className="explorer-error">Conteúdo externo desativado. Resultados já salvos continuam visíveis no cache local.</p>}
         {error && <p className="explorer-error">{error}</p>}
         <div className="explorer-results">
           {!loading && response && results.length === 0 && (

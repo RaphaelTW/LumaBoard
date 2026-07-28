@@ -6,6 +6,7 @@ const modules = readFileSync(new URL("./modules.tsx", import.meta.url), "utf8");
 const display = readFileSync(new URL("./display/display-client.tsx", import.meta.url), "utf8");
 const experience = readFileSync(new URL("./experience-module.tsx", import.meta.url), "utf8");
 const verifier = readFileSync(new URL("../scripts/verify-release.ps1", import.meta.url), "utf8");
+const packageRelease = readFileSync(new URL("../scripts/package-release.mjs", import.meta.url), "utf8");
 
 describe("quality gate v1.8.1", () => {
   it("does not mirror derived theme or device state through synchronous effects", () => {
@@ -28,5 +29,14 @@ describe("quality gate v1.8.1", () => {
     expect(verifier).toContain("if ($LASTEXITCODE -ne 0)");
     expect(verifier).toContain("Validação concluída com sucesso.");
     expect(verifier).toContain("Não foi possível remover node_modules");
+  });
+
+  it("builds clean public release archives without development artifacts", () => {
+    expect(packageRelease).toContain('"node_modules"');
+    expect(packageRelease).toContain('".git"');
+    expect(packageRelease).toContain('".next"');
+    expect(packageRelease).toContain('"tsconfig.tsbuildinfo"');
+    expect(packageRelease).toContain("Artefatos proibidos no pacote");
+    expect(packageRelease).toContain("SHA-256");
   });
 });

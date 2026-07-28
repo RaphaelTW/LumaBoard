@@ -24,6 +24,7 @@ import {
   readMusicCache,
 } from "./dashboard-config";
 import { formatTimer } from "./local-widgets";
+import { openPrivacyPreferences, useExternalContentConsent } from "./privacy-preferences";
 import { themeCssVariables, useThemeForLayout } from "./theme-system";
 
 export type DashboardRenderData = {
@@ -94,6 +95,7 @@ function NewsWidget({
   secondary?: PublicAnimeItem[];
 }) {
   const [index, setIndex] = useState(0);
+  const externalContentAllowed = useExternalContentConsent();
   const filtered = useMemo(() => {
     if (settings.newsSource === "all" || widget.type === "anime") return items;
     return items.filter((item) => {
@@ -115,17 +117,17 @@ function NewsWidget({
     <WidgetShell widget={widget} icon={icon}>
       {!current ? <p className="dashboard-empty">{label} indisponíveis.</p> : (
         <div className={`dashboard-news ${settings.newsImageOnly ? "image-only" : ""}`}>
-          {current.imageUrl && <img src={current.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />}
+          {externalContentAllowed && current.imageUrl && <img src={current.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />}
           {!settings.newsImageOnly && <div>
             <strong>{current.title}</strong>
             <span>{current.source} · {index + 1}/{filtered.length}</span>
-            {safeLink(current.url) && <a href={current.url} target="_blank" rel="noreferrer">Abrir <ExternalLink /></a>}
+            {externalContentAllowed && safeLink(current.url) ? <a href={current.url} target="_blank" rel="noreferrer">Abrir <ExternalLink /></a> : <button className="button secondary" onClick={openPrivacyPreferences}>Ativar externo</button>}
           </div>}
         </div>
       )}
       {secondary && secondary.length > 0 && (
         <div className="dashboard-anime-strip">
-          {secondary.slice(0, 3).map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.title}</a>)}
+          {secondary.slice(0, 3).map((item) => externalContentAllowed ? <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.title}</a> : <span key={item.id}>{item.title}</span>)}
         </div>
       )}
     </WidgetShell>

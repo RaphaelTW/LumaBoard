@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { hasExternalContentConsent, useExternalContentConsent } from "./privacy-preferences";
 import { isRecord, readStoredValue, writeStoredValue } from "./storage";
 
 const PUBLIC_DATA_KEY = "lumaboard-public-data-v2";
@@ -137,6 +138,7 @@ export type PublicSummary = {
 };
 
 type PublicDataStatus = "loading" | "ready" | "stale" | "error";
+export const EXTERNAL_CONTENT_DISABLED_MESSAGE = "Conteúdo externo desativado nas preferências de privacidade.";
 
 export const DEFAULT_PUBLIC_PLUGIN_IDS = [
   "air",
@@ -345,6 +347,7 @@ export function usePublicSummary(
   const [summary, setSummary] = useState<PublicSummary>(initialPublicSummary);
   const [status, setStatus] = useState<PublicDataStatus>("loading");
   const [refreshMinutes, setRefreshMinutes] = useState(DEFAULT_REFRESH_MINUTES);
+  const externalContentAllowed = useExternalContentConsent();
   const running = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -352,6 +355,7 @@ export function usePublicSummary(
     running.current = true;
     setStatus((current) => (current === "ready" ? current : "loading"));
     try {
+      if (!hasExternalContentConsent()) throw new Error(EXTERNAL_CONTENT_DISABLED_MESSAGE);
       const payload = await fetchSummary(latitude, longitude, city, stateCode, timezone);
       setSummary(payload);
       setStatus("ready");
@@ -409,10 +413,14 @@ export function usePublicSummary(
         setStatus("stale");
       });
     }
+    if (!externalContentAllowed) {
+      queueMicrotask(() => setStatus(cached ? "stale" : "error"));
+      return;
+    }
     queueMicrotask(() => void refresh());
     const timer = window.setInterval(() => void refresh(), refreshMinutes * 60 * 1000);
     return () => window.clearInterval(timer);
-  }, [refresh, refreshMinutes]);
+  }, [externalContentAllowed, refresh, refreshMinutes]);
 
-  return { summary, status, refresh, refreshMinutes };
+  return { summary, status, refresh, refreshMinutes, externalContentAllowed };
 }

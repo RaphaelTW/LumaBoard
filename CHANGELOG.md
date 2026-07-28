@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.8.6] - 2026-07-28
+
+### Corrigido
+
+- Versão do aplicativo, service worker, testes e documentação sincronizados para 1.8.6.
+- Versão real de armazenamento mantida em 7 e referência antiga do README corrigida.
+- Duplicidade das chaves `lumaboard-news-preferences-v1` e `lumaboard-news-state-v1` removida da tipagem e da lista gerenciada, preservando os nomes canônicos existentes.
+- Preferência de Conteúdo externo aplicada antes de chamadas opcionais para resumo público, clima, música e pesquisas sob demanda.
+- Links e mídia externa opcionais passam a respeitar a escolha de privacidade, mantendo cache local visível quando disponível.
+- Páginas legais atualizadas para refletir localStorage, Cache Storage, PWA, ausência de Analytics/anúncios e ausência de sincronização em nuvem.
+- Script `release:package` criado para gerar ZIP público limpo, validar artefatos proibidos e imprimir SHA-256.
+
+### Validação
+
+- `npm ci`, `npm run lint`, `npm test` e `npm run build` devem ser executados antes da publicação final.
+
 ## [1.8.5] - 2026-07-28
 
 ### Melhorado

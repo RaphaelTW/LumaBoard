@@ -9,14 +9,23 @@
 [![Netlify](https://img.shields.io/badge/Netlify-ready-00C7B7?logo=netlify&logoColor=white)](https://www.netlify.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3D6545)](LICENSE)
 
-O **LumaBoard 1.8.5 — Deep Modularization & Summary Domains** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, temas, preferências, favoritos, iniciais do avatar e os últimos dados públicos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
+O **LumaBoard 1.8.6 — Documentation, Privacy & Storage Maintenance** cria e exibe painéis para computadores, celulares, tablets, televisões, e-readers, Raspberry Pi e futuras telas e-paper. Agenda, tarefas, Pomodoro, layouts, oito temas oficiais, temas personalizados, 16 modelos locais, preferências, favoritos, iniciais do avatar e os últimos dados públicos permitidos ficam no `localStorage` do navegador. O servidor apenas normaliza APIs públicas por meio de Functions sem estado.
 
 Consulte o histórico completo em [CHANGELOG.md](CHANGELOG.md). O mesmo changelog também aparece na área **Experiência** do aplicativo.
 
 
-## Privacidade, termos e armazenamento local na v1.8.5
+## Privacidade, termos e armazenamento local na v1.8.6
 
-A aplicação inclui páginas em `/termos`, `/privacidade` e `/cookies`, além de um painel de escolhas salvo apenas no navegador. Atualmente não existem anúncios, cookies publicitários ou ferramenta analítica externa. Qualquer futura monetização deverá atualizar os documentos e solicitar nova escolha antes de carregar tecnologias opcionais. Os textos são informativos e devem ser revisados por profissional jurídico antes de uso comercial.
+A aplicação inclui páginas em `/termos`, `/privacidade` e `/cookies`, além de um painel de escolhas salvo apenas no navegador. Atualmente não existem anúncios, cookies publicitários ou ferramenta analítica externa. Quando **Conteúdo externo** está desativado, novas chamadas opcionais para clima, notícias, música, arte, livros, TV, anime e pesquisas públicas são bloqueadas antes da rede; dados já salvos localmente continuam disponíveis quando houver cache. Qualquer futura monetização deverá atualizar os documentos e solicitar nova escolha antes de carregar tecnologias opcionais. Os textos são informativos e devem ser revisados por profissional jurídico antes de uso comercial.
+
+## Destaques da versão 1.8.6
+
+- versão do aplicativo, cache PWA e documentação sincronizados para 1.8.6;
+- versão real de armazenamento mantida em 7 e referências antigas corrigidas;
+- chaves de notícias normalizadas sem duplicidade em backups e limpeza;
+- consentimento de conteúdo externo aplicado antes de chamadas opcionais;
+- páginas legais revisadas para localStorage, Cache Storage, PWA e ausência de nuvem;
+- script `release:package` criado para gerar ZIP limpo e SHA-256.
 
 ## Destaques da versão 1.8.5
 
@@ -118,8 +127,8 @@ O LumaBoard continua sem servidor de push, conta ou banco. Os alertas do navegad
 - sincronização das APIs quando a conexão retorna;
 - Central de Notificações inteiramente local;
 - agenda mensal, semanal, diária e em lista, com recorrência avançada, múltiplos alertas e `.ics`;
-- temas Papel, Noturno, OLED e E-paper, além de temas personalizados por layout;
-- galeria com dez modelos locais;
+- oito temas oficiais, além de temas personalizados por layout;
+- galeria com 16 modelos locais;
 - validação de backup, limites de tamanho, recuperação de dados corrompidos e migração automática;
 - tratamento global de erros e monitor básico de desempenho.
 
@@ -426,7 +435,7 @@ Os tipos são uma allowlist. A rota não aceita URL externa arbitrária e, porta
 | `lumaboard-client-errors-v1` | erros recuperados pela barreira global |
 | `lumaboard-backup-meta` | versão e data do último backup importado |
 
-A versão de armazenamento atual é **6**. Dados antigos são normalizados e migrados, incluindo agenda simples, temas claro/noturno e configurações das versões 1.2 a 1.5.
+A versão de armazenamento atual é **7**. Dados antigos são normalizados e migrados, incluindo agenda simples, temas claro/noturno e configurações das versões 1.2 a 1.7.
 
 ### Proteções de dados
 

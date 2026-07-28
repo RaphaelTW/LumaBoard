@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { migrateBackup, readStoredValue, safeParseJSON, validateBackupPayload, writeStoredValue } from "./storage";
+import { exportLocalBackup, managedKeys, migrateBackup, readStoredValue, safeParseJSON, STORAGE_VERSION, validateBackupPayload, writeStoredValue } from "./storage";
 
 const memory = new Map<string, string>();
 const session = new Map<string, string>();
@@ -31,6 +31,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("local backup storage", () => {
+  it("keeps storage version 7 and news keys canonical", () => {
+    expect(STORAGE_VERSION).toBe(7);
+    expect(managedKeys.filter((key) => key === "lumaboard-news-preferences-v1")).toHaveLength(1);
+    expect(managedKeys.filter((key) => key === "lumaboard-news-state-v1")).toHaveLength(1);
+  });
+
   it("returns null for corrupted JSON", () => {
     expect(safeParseJSON("{bad json")).toBeNull();
   });
@@ -53,6 +59,15 @@ describe("local backup storage", () => {
   it("writes and reads validated local values", () => {
     expect(writeStoredValue("lumaboard-focus", { task: "Teste" })).toBe(true);
     expect(readStoredValue("lumaboard-focus", (value): value is { task: string } => Boolean(value && typeof value === "object" && "task" in value), { task: "Fallback" })).toEqual({ task: "Teste" });
+  });
+
+  it("exports news preferences and state once without losing saved news", () => {
+    writeStoredValue("lumaboard-news-preferences-v1", { Tecnologia: { source: "all" } });
+    writeStoredValue("lumaboard-news-state-v1", { readIds: ["hn-1"], savedIds: ["dev-2"] });
+    const backup = exportLocalBackup();
+    expect(Object.keys(backup.data).filter((key) => key === "lumaboard-news-preferences-v1")).toHaveLength(1);
+    expect(Object.keys(backup.data).filter((key) => key === "lumaboard-news-state-v1")).toHaveLength(1);
+    expect(backup.data["lumaboard-news-state-v1"]).toEqual({ readIds: ["hn-1"], savedIds: ["dev-2"] });
   });
 
   it("quarantines corrupted values instead of crashing", () => {

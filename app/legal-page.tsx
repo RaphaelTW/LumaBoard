@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { APP_VERSION } from "./app-version";
 
 export function LegalPage({ title, updated, children }: { title: string; updated: string; children: ReactNode }) {
   return <main className="legal-page">
     <div className="legal-shell">
       <Link className="legal-back" href="/">← Voltar ao LumaBoard</Link>
-      <span className="eyebrow">LumaBoard v1.8.5</span>
+      <span className="eyebrow">LumaBoard v{APP_VERSION}</span>
       <h1>{title}</h1>
       <p className="legal-updated">Última atualização: {updated}</p>
       <div className="legal-content">{children}</div>

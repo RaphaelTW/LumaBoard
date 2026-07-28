@@ -1,6 +1,6 @@
 {
   "name": "lumaboard",
-  "version": "1.8.5",
+  "version": "1.8.6",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "release:prepare": "node scripts/prepare-release.mjs",
+    "release:package": "node scripts/package-release.mjs",
     "check": "npm run lint && npm test && npm run build"
   },
   "dependencies": {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { hasExternalContentConsent, useExternalContentConsent } from "./privacy-preferences";
 import { isRecord, readStoredValue, writeStoredValue } from "./storage";
 
 const LOCATION_KEY = "lumaboard-location-v1";
@@ -53,6 +54,7 @@ export type HourlyForecast = {
 };
 
 export type WeatherStatus = "loading" | "ready" | "stale" | "error";
+export const WEATHER_EXTERNAL_CONTENT_DISABLED = "Conteúdo externo desativado";
 
 const fallbackLocation: StoredLocation = {
   latitude: -23.5505,
@@ -368,6 +370,7 @@ function finiteOrNull(value: unknown): number | null {
 export function useLocalWeather() {
   const [weather, setWeather] = useState<WeatherSnapshot>(initialWeather);
   const [status, setStatus] = useState<WeatherStatus>("loading");
+  const externalContentAllowed = useExternalContentConsent();
   const running = useRef(false);
 
   const loadLocation = useCallback(async (location: StoredLocation) => {
@@ -384,6 +387,7 @@ export function useLocalWeather() {
     setStatus((current) => (current === "ready" ? current : "loading"));
 
     try {
+      if (!hasExternalContentConsent()) throw new Error(WEATHER_EXTERNAL_CONTENT_DISABLED);
       const location = await resolveLocation(forceLocation);
       await loadLocation(location);
     } catch {
@@ -450,10 +454,25 @@ export function useLocalWeather() {
         setStatus("stale");
       });
     }
+    if (!externalContentAllowed) {
+      queueMicrotask(() => {
+        if (!cached) {
+          setWeather({
+            ...initialWeather,
+            city: fallbackLocation.city,
+            latitude: fallbackLocation.latitude,
+            longitude: fallbackLocation.longitude,
+            description: WEATHER_EXTERNAL_CONTENT_DISABLED,
+          });
+          setStatus("error");
+        }
+      });
+      return;
+    }
     queueMicrotask(() => void refresh());
     const timer = window.setInterval(() => void refresh(), REFRESH_INTERVAL);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [externalContentAllowed, refresh]);
 
-  return { weather, status, refresh, setManualLocation };
+  return { weather, status, refresh, setManualLocation, externalContentAllowed };
 }

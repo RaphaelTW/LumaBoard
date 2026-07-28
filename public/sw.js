@@ -1,5 +1,5 @@
-/* LumaBoard v1.8.5 service worker */
-const VERSION = "1.8.5";
+/* LumaBoard v1.8.6 service worker */
+const VERSION = "1.8.6";
 const STATIC_CACHE = `lumaboard-static-${VERSION}`;
 const PAGE_CACHE = `lumaboard-pages-${VERSION}`;
 const API_CACHE = `lumaboard-api-${VERSION}`;
