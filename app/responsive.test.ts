@@ -6,10 +6,11 @@ const mobileCss = readFileSync(new URL("./mobile-shell.css", import.meta.url), "
 const desktopCss = readFileSync(new URL("./desktop-shell.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("./LumaBoardApp.tsx", import.meta.url), "utf8");
 const shell = readFileSync(new URL("./app-shell-components.tsx", import.meta.url), "utf8");
+const overview = readFileSync(new URL("./overview-module.tsx", import.meta.url), "utf8");
 const serviceWorker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 const layout = readFileSync(new URL("./layout.tsx", import.meta.url), "utf8");
 
-describe("responsive experience v1.8.4", () => {
+describe("responsive experience v1.8.5", () => {
   it("declares the real device viewport and safe-area support", () => {
     expect(layout).toContain('width: "device-width"');
     expect(layout).toContain("initialScale: 1");
@@ -60,12 +61,13 @@ describe("responsive experience v1.8.4", () => {
   });
 
   it("shows the installed version and release summary", () => {
-    expect(app).toContain("release-summary");
-    expect(app).toContain("APP_VERSION");
-    expect(app).toContain("CHANGELOG[0]");
+    expect(app).toContain("OverviewModule");
+    expect(overview).toContain("release-summary");
+    expect(overview).toContain("APP_VERSION");
+    expect(overview).toContain("CHANGELOG[0]");
   });
 
   it("bumps the PWA cache so corrected styles reach installed apps", () => {
-    expect(serviceWorker).toContain('const VERSION = "1.8.4";');
+    expect(serviceWorker).toContain('const VERSION = "1.8.5";');
   });
 });

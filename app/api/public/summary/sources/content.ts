@@ -1,53 +1,8 @@
-import { APP_USER_AGENT } from "../../../../app-version";
-
-type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function finiteOrNull(value: unknown): number | null {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function stringOrNull(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
+import { fetchJson } from "../fetch-json";
+import { finiteOrNull, isRecord, localDateKey, stringOrNull } from "../utils";
 
 function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-async function fetchJson(url: string, timeout = 7000): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "User-Agent": APP_USER_AGENT,
-      },
-      next: { revalidate: 900 },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function localDateKey(timeZone = "America/Sao_Paulo"): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 export async function loadFeaturedBook() {

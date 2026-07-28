@@ -52,7 +52,7 @@ export type HourlyForecast = {
   description: string;
 };
 
-type WeatherStatus = "loading" | "ready" | "stale" | "error";
+export type WeatherStatus = "loading" | "ready" | "stale" | "error";
 
 const fallbackLocation: StoredLocation = {
   latitude: -23.5505,

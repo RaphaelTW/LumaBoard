@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.5] - 2026-07-28
+
+### Melhorado
+
+- `LumaBoardApp.tsx` reduzido de 1.219 para 970 linhas com `OverviewModule` e hooks dedicados para aba ativa, avatar, sincronização de dashboard/música e alertas de automação.
+- `/api/public/summary` dividido por domínio em `news`, `anime`, `economy`, `geo`, `environment`, `content`, tipos e helpers compartilhados.
+- Guardrails de teste atualizados para validar a nova organização do overview sem depender do arquivo monolítico antigo.
+- Cache PWA e versão instalada atualizados para 1.8.5.
+
+### Validação
+
+- `npm run check` executado com lint, testes e build de produção.
+
 ## [1.8.4] - 2026-07-28
 
 ### Melhorado

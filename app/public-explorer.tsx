@@ -31,7 +31,7 @@ type ExplorerCache = {
   responses: Partial<Record<SearchType, SearchResponse>>;
 };
 
-type ManualLocationInput = {
+export type ManualLocationInput = {
   latitude: number;
   longitude: number;
   city: string;

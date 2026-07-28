@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
-  CircleGauge,
   Cloud,
   CloudFog,
   CloudLightning,
@@ -14,11 +13,11 @@ import {
   CloudSun,
   Code2,
   Columns3,
+  Copy,
   Focus,
   Grid2X2,
   Library,
   ListMusic,
-  Maximize2,
   Monitor,
   Moon,
   MoreHorizontal,
@@ -27,11 +26,8 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  SlidersHorizontal,
-  Sparkles,
   Sun,
   Trash2,
-  Copy,
   WandSparkles,
   X,
   Zap,
@@ -43,20 +39,11 @@ import {
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  RAIN_RULE_ID,
-  defaultAutomationState,
-  evaluateRainRule,
-  readAutomationState,
-  recordRainAlert,
-  type LocalAutomationRule,
-} from "./automation";
-import {
   AutomationModule,
   DevicesModule,
   LibraryModule,
   PlaylistsModule,
   StudioModule,
-  type View,
 } from "./modules";
 import { type WeatherSnapshot, useLocalWeather } from "./weather";
 import {
@@ -78,21 +65,22 @@ import {
   normalizeEnabledPublicPlugins,
   usePublicSummary,
 } from "./public-data";
-import { PublicExplorer } from "./public-explorer";
 import { MusicModule } from "./music-module";
 import { DiagnosticsModule } from "./diagnostics-module";
 import { DashboardRenderer, type DashboardRenderData } from "./dashboard-renderer";
-import { createShareUrl, readDashboardState, readMusicCache, resolveScheduledLayout, type DashboardState } from "./dashboard-config";
+import { createShareUrl, readDashboardState, resolveScheduledLayout } from "./dashboard-config";
 import { AgendaModule } from "./agenda-module";
 import { AppearanceModule } from "./appearance-module";
 import { ExperienceModule } from "./experience-module";
 import { APP_VERSION, usePWA } from "./pwa-manager";
-import { CHANGELOG } from "./changelog-data";
 import { useThemeSystem } from "./theme-system";
-import { readStoredValue, writeStoredValue } from "./storage";
-import { PublicDataPanel } from "./public-data-panel";
 import { GlobalSearchDialog } from "./global-search-dialog";
 import { AppSidebar, AppTopbar, NotificationQuickPanel, type ShellNavItem } from "./app-shell-components";
+import { OverviewModule } from "./overview-module";
+import { useActiveView } from "./use-active-view";
+import { useAutomationAlerts } from "./use-automation-alerts";
+import { useAvatarProfile } from "./use-avatar-profile";
+import { useDashboardSync } from "./use-dashboard-sync";
 
 const navItems: ShellNavItem[] = [
   { id: "overview", label: "Visão geral", mobileLabel: "Início", icon: Grid2X2 },
@@ -108,35 +96,9 @@ const navItems: ShellNavItem[] = [
   { id: "diagnostics", label: "Diagnóstico", icon: Wrench },
 ];
 
-const plugins = [
-  {
-    name: "Agenda",
-    description: "Compromissos do dia e próximos eventos.",
-    icon: CalendarDays,
-    tone: "cyan",
-  },
-  {
-    name: "Tempo",
-    description: "Previsão local com atualização inteligente.",
-    icon: CloudSun,
-    tone: "amber",
-  },
-  {
-    name: "Foco",
-    description: "Blocos de concentração e tarefas essenciais.",
-    icon: Focus,
-    tone: "cyan",
-  },
-  {
-    name: "Dados públicos",
-    description: "Economia, ambiente, conteúdo e consultas públicas sem chave.",
-    icon: Code2,
-    tone: "moss",
-  },
-];
-
 const weekDays = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
 const DEFAULT_PUBLIC_PLUGINS = [...DEFAULT_PUBLIC_PLUGIN_IDS];
+const navViewIds = navItems.map((item) => item.id);
 
 function safeTimezone(timezone: string): string {
   try {
@@ -589,7 +551,7 @@ export function LumaBoardApp() {
   const theme = themeProfile.mode === "night" || themeProfile.mode === "oled" ? "night" : "paper";
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const [activeView, setActiveView] = useState<View>("overview");
+  const { activeView, setActiveView } = useActiveView(navViewIds);
   const [displayMode, setDisplayMode] = useState(false);
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState<"create" | "device" | "preview" | null>(
@@ -598,8 +560,8 @@ export function LumaBoardApp() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
-  const [dashboardState, setDashboardState] = useState<DashboardState | null>(null);
-  const [musicCache, setMusicCache] = useState(() => readMusicCache());
+  const { dashboardState, musicCache } = useDashboardSync();
+  const { avatarInitials, updateAvatarInitials } = useAvatarProfile(setToast);
   const [enabledPublicPlugins, setEnabledPublicPlugins] = useState<string[]>(DEFAULT_PUBLIC_PLUGINS);
   const {
     weather,
@@ -620,15 +582,13 @@ export function LumaBoardApp() {
     weather.timezone,
   );
   const [sharedConfig, setSharedConfig] = useState<SharedDisplayConfig | null>(null);
-  const [automationState, setAutomationState] = useState(defaultAutomationState);
-  const [avatarInitials, setAvatarInitials] = useState("RS");
-  const rainRule =
-    automationState.rules.find((rule) => rule.id === RAIN_RULE_ID) ??
-    defaultAutomationState.rules[0];
-  const rainEvaluation = useMemo(
-    () => evaluateRainRule(rainRule, weather, now),
-    [rainRule, weather, now],
-  );
+  const { rainEvaluation, updateRainRule, clearRainHistory } = useAutomationAlerts({
+    weather,
+    weatherStatus,
+    now,
+    onToast: setToast,
+    onNavigate: setActiveView,
+  });
 
   const calendar = useMemo(
     () => calendarModel(now, weather.timezone),
@@ -658,20 +618,9 @@ export function LumaBoardApp() {
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [setActiveView]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const profile = readStoredValue(
-        "lumaboard-user-profile-v1",
-        (value): value is { initials: string } => typeof value === "object" && value !== null && "initials" in value && typeof (value as { initials?: unknown }).initials === "string",
-        { initials: "RS" },
-      );
-      setAvatarInitials(profile.initials.replace(/[^a-zA-ZÀ-ÿ0-9]/g, "").slice(0, 3).toUpperCase() || "RS");
-      setAutomationState(readAutomationState());
-      setDashboardState(readDashboardState());
-      setMusicCache(readMusicCache());
-    });
     const params = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     const encodedConfig = hashParams.get("config");
@@ -680,29 +629,6 @@ export function LumaBoardApp() {
       if (decoded) queueMicrotask(() => setSharedConfig(decoded));
     }
     if (params.get("display") === "1") queueMicrotask(() => setDisplayMode(true));
-    const requestedView = params.get("view") ?? window.localStorage.getItem("lumaboard-last-view-v1");
-    if (requestedView && navItems.some((item) => item.id === requestedView)) queueMicrotask(() => setActiveView(requestedView as View));
-  }, []);
-
-  useEffect(() => {
-    const syncDashboard = (event: Event) => {
-      if (event instanceof CustomEvent && event.detail) setDashboardState(event.detail as DashboardState);
-      else setDashboardState(readDashboardState());
-    };
-    const syncMusic = (event: Event) => {
-      if (event instanceof CustomEvent && event.detail) setMusicCache(event.detail);
-      else setMusicCache(readMusicCache());
-    };
-    window.addEventListener("lumaboard:dashboard", syncDashboard);
-    window.addEventListener("lumaboard:music", syncMusic);
-    window.addEventListener("storage", syncDashboard);
-    window.addEventListener("storage", syncMusic);
-    return () => {
-      window.removeEventListener("lumaboard:dashboard", syncDashboard);
-      window.removeEventListener("lumaboard:music", syncMusic);
-      window.removeEventListener("storage", syncDashboard);
-      window.removeEventListener("storage", syncMusic);
-    };
   }, []);
 
   useEffect(() => {
@@ -731,21 +657,6 @@ export function LumaBoardApp() {
   }, []);
 
   useEffect(() => {
-    writeStoredValue("lumaboard-last-view-v1", activeView);
-    const url = new URL(window.location.href);
-    if (activeView === "overview") url.searchParams.delete("view");
-    else url.searchParams.set("view", activeView);
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [activeView]);
-
-  const updateAvatarInitials = useCallback((value: string) => {
-    const next = value.replace(/[^a-zA-ZÀ-ÿ0-9]/g, "").slice(0, 3).toUpperCase() || "EU";
-    setAvatarInitials(next);
-    writeStoredValue("lumaboard-user-profile-v1", { initials: next });
-    setToast("Iniciais do perfil salvas neste navegador.");
-  }, []);
-
-  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 2800);
     return () => window.clearTimeout(timer);
@@ -771,7 +682,7 @@ export function LumaBoardApp() {
     const reconnect = () => refreshDevice();
     window.addEventListener("lumaboard:reconnect", reconnect);
     return () => window.removeEventListener("lumaboard:reconnect", reconnect);
-  }, [refreshDevice]);
+  }, [refreshDevice, setActiveView]);
 
   const copyDisplayLink = async () => {
     const state = dashboardState ?? readDashboardState();
@@ -783,51 +694,6 @@ export function LumaBoardApp() {
       window.prompt("Copie o link do display:", url);
     }
   };
-
-  const updateRainRule = (nextRule: LocalAutomationRule) => {
-    setAutomationState((current) => ({
-      ...current,
-      rules: current.rules.map((rule) => (rule.id === nextRule.id ? nextRule : rule)),
-    }));
-  };
-
-  const clearRainHistory = () => {
-    const next = {
-      ...readAutomationState(),
-      history: [],
-    };
-    writeStoredValue("lumaboard-rules", next);
-    setAutomationState(next);
-    setToast("Histórico de alertas limpo.");
-  };
-
-  useEffect(() => {
-    const state = readAutomationState();
-    const rule = state.rules.find((item) => item.id === RAIN_RULE_ID);
-    if (!rule) return;
-    const evaluation = evaluateRainRule(rule, weather, new Date());
-    const evaluated = {
-      ...state,
-      rules: state.rules.map((item) =>
-        item.id === RAIN_RULE_ID
-          ? { ...item, lastEvaluatedAt: new Date().toISOString() }
-          : item,
-      ),
-    };
-    const next = recordRainAlert(evaluated, rule, evaluation);
-    writeStoredValue("lumaboard-rules", next);
-    queueMicrotask(() => setAutomationState(next));
-    if (!evaluation.shouldAlert || evaluation.maxProbability === null) return;
-    queueMicrotask(() => {
-      setToast(`Chuva provável: ${evaluation.maxProbability}% nas próximas 6h.`);
-      setActiveView("automation");
-    });
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("LumaBoard: alerta de chuva", {
-        body: `Probabilidade de ${evaluation.maxProbability}% perto de ${weather.city}.`,
-      });
-    }
-  }, [weather, weatherStatus]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -853,7 +719,7 @@ export function LumaBoardApp() {
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [refreshDevice]);
+  }, [refreshDevice, setActiveView]);
 
   const toggleTheme = () => {
     const next = theme === "paper" ? "night" : "paper";
@@ -934,102 +800,26 @@ export function LumaBoardApp() {
         {pwa.updateAvailable && <div className="global-update-banner"><CloudDownload /><span><strong>Atualização disponível</strong> Uma cópia local será criada antes de recarregar.</span><button onClick={pwa.applyUpdate}>Atualizar agora</button></div>}
         <main id="conteudo" className={`dashboard ${activeView !== "overview" ? "module-dashboard" : ""}`}>
           <div hidden={activeView !== "overview"}>
-          <section className="page-heading">
-            <div>
-              <span className="eyebrow">CENTRAL AMBIENTE</span>
-              <h1>Seu ambiente, em sintonia.</h1>
-              <p>
-                Conteúdo útil, silencioso e sempre no lugar certo — sem depender
-                de nuvem, licença por tela ou distrações.
-              </p>
-            </div>
-            <div className="heading-actions">
-              <button className="button primary" onClick={() => setModal("create")}>
-                <Plus /> Criar tela
-              </button>
-              <button className="button secondary" onClick={() => setModal("device")}>
-                <Copy /> Gerar link do display
-              </button>
-            </div>
-          </section>
-
-          <button className="release-summary panel" onClick={() => setActiveView("experience")} aria-label="Abrir changelog completo">
-            <span className="release-version">v{APP_VERSION}</span>
-            <span><strong>{CHANGELOG[0]?.title ?? "Atualização recente"}</strong><small>{CHANGELOG[0]?.highlights[0] ?? "Consulte as novidades desta versão."}</small></span>
-            <ChevronRight aria-hidden="true" />
-          </button>
-
-          <section className="overview-grid">
-            <article className="preview-panel panel">
-              <header className="panel-heading">
-                <div>
-                  <span className="status-dot" />
-                  <strong>Pré-visualização ao vivo</strong>
-                </div>
-                <div className="preview-meta mono">
-                  E-PAPER 5:3 <span>800 × 480</span>
-                  <button
-                    className="icon-button compact"
-                    onClick={() => setModal("preview")}
-                    aria-label="Ampliar prévia"
-                  >
-                    <Maximize2 />
-                  </button>
-                </div>
-              </header>
-              <button
-                className="preview-button"
-                onClick={() => setModal("preview")}
-                aria-label="Abrir prévia em tela ampliada"
-              >
-                <EInkPreview refreshing={refreshing} weather={weather} now={now} event={previewEvent} focus={previewFocus} />
-              </button>
-              <footer className="preview-footer">
-                <span>
-                  <RefreshCw className={refreshing ? "spin" : ""} />
-                  {refreshing ? "Atualizando…" : `Atualizado ${deviceState.synced}`}
-                </span>
-                <span>{weatherStatus === "ready" ? "Clima ao vivo" : weatherStatus === "stale" ? "Clima em cache" : "Conectando ao clima"} · 4 cinzas</span>
-              </footer>
-            </article>
-
-            <div className="status-column">
-              <article className="device-card panel">
-                <header>
-                  <span className="device-icon"><Monitor /></span>
-                  <div>
-                    <strong>{deviceState.name}</strong>
-                    <span><span className="status-dot" /> navegador local</span>
-                  </div>
-                  <MoreHorizontal />
-                </header>
-                <div className="device-metrics">
-                  <div><CalendarDays /><strong>{localWidgets.events.length}</strong><span>eventos locais</span></div>
-                  <div><CloudSun /><strong>{enabledPublicPlugins.length}</strong><span>fontes públicas visíveis</span></div>
-                </div>
-                <button className="button primary full" onClick={refreshDevice} disabled={refreshing}>
-                  <RefreshCw className={refreshing ? "spin" : ""} />
-                  {refreshing ? "Atualizando…" : "Atualizar tudo"}
-                </button>
-              </article>
-
-              <article className="schedule-card panel">
-                <header>
-                  <div>
-                    <span className="eyebrow">PRÓXIMO COMPROMISSO</span>
-                    <strong>{localWidgets.nextEvent?.title ?? "Agenda livre"}</strong>
-                  </div>
-                  <span className="date-tile mono">{calendar.tile.day}<small>{calendar.tile.month}</small></span>
-                </header>
-                <div className="schedule-time">
-                  <strong className="mono">{localWidgets.nextEvent?.time ?? "--:--"}</strong>
-                  <span>{localWidgets.nextEvent ? formatPublicDate(localWidgets.nextEvent.occurrenceDate) : "Adicione um evento abaixo"}</span>
-                </div>
-                <div className="progress"><i /></div>
-                <button className="text-button" onClick={() => document.querySelector(".local-data-section")?.scrollIntoView({ behavior: "smooth" })}>Editar agenda local <ChevronRight /></button>
-              </article>
-            </div>
-          </section>
+          <OverviewModule
+            preview={<EInkPreview refreshing={refreshing} weather={weather} now={now} event={previewEvent} focus={previewFocus} />}
+            refreshing={refreshing}
+            weatherStatus={weatherStatus}
+            deviceState={deviceState}
+            calendarTile={calendar.tile}
+            localWidgets={localWidgets}
+            publicSummary={publicSummary}
+            publicDataStatus={publicDataStatus}
+            enabledPublicPlugins={enabledPublicPlugins}
+            onCreateScreen={() => setModal("create")}
+            onCreateDisplayLink={() => setModal("device")}
+            onOpenPreview={() => setModal("preview")}
+            onRefreshDevice={refreshDevice}
+            onRefreshPublicData={() => void refreshPublicData()}
+            onUseLocation={setManualLocation}
+            onUseMachineLocation={() => refreshWeather(true)}
+            onToast={setToast}
+            onNavigate={setActiveView}
+          />
 
           <LocalWidgetsPanel
             events={localWidgets.events}
@@ -1049,46 +839,6 @@ export function LumaBoardApp() {
             onResetFocus={localWidgets.resetFocus}
             onToast={setToast}
           />
-
-          <PublicDataPanel
-            summary={publicSummary}
-            status={publicDataStatus}
-            onRefresh={() => void refreshPublicData()}
-            enabled={enabledPublicPlugins}
-          />
-
-          <PublicExplorer
-            onUseLocation={setManualLocation}
-            onUseMachineLocation={() => refreshWeather(true)}
-            onToast={setToast}
-          />
-
-          <section className="metric-grid" aria-label="Resumo operacional">
-            <article className="metric panel"><span className="metric-icon"><Monitor /></span><div><strong>1</strong><span>display local</span><small>link compartilhável, sem pareamento</small></div></article>
-            <article className="metric panel"><span className="metric-icon"><CloudSun /></span><div><strong>{enabledPublicPlugins.length}</strong><span>fontes opcionais visíveis</span><small>{DEFAULT_PUBLIC_PLUGINS.length} disponíveis sem chave</small></div></article>
-            <article className="metric panel"><span className="metric-icon"><CircleGauge /></span><div><strong>0</strong><span>contas obrigatórias</span><small>nenhum token armazenado</small></div></article>
-            <article className="insight panel"><span className="metric-icon"><Sparkles /></span><div><strong>Backend sem estado</strong><span>A Function apenas normaliza dados públicos; agenda, foco e preferências ficam no localStorage.</span></div></article>
-          </section>
-
-          <section className="plugins-section">
-            <header className="section-heading">
-              <div><span className="eyebrow">BIBLIOTECA</span><h2>Plugins em destaque</h2></div>
-              <button className="text-button" onClick={() => setActiveView("library")}>Ver todos <ChevronRight /></button>
-            </header>
-            <div className="plugins-grid">
-              {plugins.map(({ name, description, icon: Icon, tone }) => (
-                <article className="plugin-card panel" key={name}>
-                  <header>
-                    <span className={`plugin-icon ${tone}`}><Icon /></span>
-                    <span className="status-chip"><span className="status-dot" /> ATIVO</span>
-                  </header>
-                  <h3>{name}</h3>
-                  <p>{description}</p>
-                  <button className="text-button" onClick={() => setActiveView("library")}>Configurar <SlidersHorizontal /></button>
-                </article>
-              ))}
-            </div>
-          </section>
           </div>
 
           {activeView === "agenda" && <AgendaModule onToast={setToast} />}
