@@ -38,28 +38,30 @@ npm run check
 
 Não continue para o commit quando algum comando terminar com erro.
 
-## Commit da v1.8.0
+## Commit da versão atual
 
 ```powershell
 git add -A
-git commit -m "feat: release Themes and Template Gallery v1.8.0" -m "Add eight official themes, advanced density and surface controls, theme collections, per-layout identities, a searchable gallery with sixteen local templates, favorites, previews, responsive presentation, migration to theme state v3, regression tests, documentation, and refreshed PWA cache."
+git commit -m "tipo: resumo da versão atual" -m "Consulte o README e o CHANGELOG da versão atual para obter a mensagem de commit completa."
 ```
 
 ## Tag e push
 
 ```powershell
-git tag -a v1.8.0 -m "LumaBoard v1.8.0 - Themes and Template Gallery"
+git tag -a vX.Y.Z -m "LumaBoard vX.Y.Z - Nome da release"
 git push origin main
-git push origin v1.8.0
+git push origin vX.Y.Z
 ```
+
+Consulte o README e o CHANGELOG da versão atual para obter a mensagem de commit e o nome da tag.
 
 ## Conferência
 
 ```powershell
 git log -3 --oneline --decorate
 git ls-remote --heads origin main
-git ls-remote --tags origin "refs/tags/v1.8.0*"
+git ls-remote --tags origin "refs/tags/v*"
 git status
 ```
 
-Depois do push, abra **Deploys** no Netlify e confirme o commit da v1.8.0. Em uma PWA instalada, feche e abra o aplicativo novamente e use **Atualizar agora** quando o aviso surgir.
+Depois do push, abra **Deploys** no Netlify e confirme o commit da versão publicada. Em uma PWA instalada, feche e abra o aplicativo novamente e use **Atualizar agora** quando o aviso surgir.
