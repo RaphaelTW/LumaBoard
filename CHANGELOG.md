@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.4] - 2026-07-28
+
+### Melhorado
+
+- Shell principal modularizado com `AppSidebar`, `AppTopbar`, `NotificationQuickPanel` e componentes já extraídos de dados públicos e busca global.
+- `LumaBoardApp.tsx` reduzido novamente, concentrando mais orquestração e menos marcação de interface.
+- Testes de UI por renderização adicionados para sidebar, topbar, notificações rápidas e painel de dados públicos.
+- Script `npm run release:prepare -- <versão>` criado para atualizar metadados de release de forma consistente.
+- Cache PWA e versão instalada atualizados para 1.8.4.
+
+### Validação
+
+- `npm run check` executado com lint, testes e build de produção.
+
 ## [1.8.3] - 2026-07-27
 
 ### Melhorado

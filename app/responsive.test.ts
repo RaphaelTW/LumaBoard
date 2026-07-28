@@ -5,10 +5,11 @@ const css = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 const mobileCss = readFileSync(new URL("./mobile-shell.css", import.meta.url), "utf8");
 const desktopCss = readFileSync(new URL("./desktop-shell.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("./LumaBoardApp.tsx", import.meta.url), "utf8");
+const shell = readFileSync(new URL("./app-shell-components.tsx", import.meta.url), "utf8");
 const serviceWorker = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
 const layout = readFileSync(new URL("./layout.tsx", import.meta.url), "utf8");
 
-describe("responsive experience v1.8.3", () => {
+describe("responsive experience v1.8.4", () => {
   it("declares the real device viewport and safe-area support", () => {
     expect(layout).toContain('width: "device-width"');
     expect(layout).toContain("initialScale: 1");
@@ -53,8 +54,9 @@ describe("responsive experience v1.8.3", () => {
 
   it("opens a real notification quick panel from the bell", () => {
     expect(app).toContain("notificationPanelOpen");
-    expect(app).toContain('id="notification-quick-panel"');
-    expect(app).toContain("Abrir central completa");
+    expect(app).toContain("NotificationQuickPanel");
+    expect(shell).toContain('id="notification-quick-panel"');
+    expect(shell).toContain("Abrir central completa");
   });
 
   it("shows the installed version and release summary", () => {
@@ -64,6 +66,6 @@ describe("responsive experience v1.8.3", () => {
   });
 
   it("bumps the PWA cache so corrected styles reach installed apps", () => {
-    expect(serviceWorker).toContain('const VERSION = "1.8.3";');
+    expect(serviceWorker).toContain('const VERSION = "1.8.4";');
   });
 });

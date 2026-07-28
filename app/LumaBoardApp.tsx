@@ -27,7 +27,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Settings,
   SlidersHorizontal,
   Sparkles,
   Sun,
@@ -36,15 +35,11 @@ import {
   WandSparkles,
   X,
   Zap,
-  Search,
   Radio,
   Wrench,
-  Command,
   Palette,
   Smartphone,
   CloudDownload,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -97,8 +92,9 @@ import { useThemeSystem } from "./theme-system";
 import { readStoredValue, writeStoredValue } from "./storage";
 import { PublicDataPanel } from "./public-data-panel";
 import { GlobalSearchDialog } from "./global-search-dialog";
+import { AppSidebar, AppTopbar, NotificationQuickPanel, type ShellNavItem } from "./app-shell-components";
 
-const navItems: Array<{ id: View; label: string; mobileLabel?: string; icon: typeof Grid2X2 }> = [
+const navItems: ShellNavItem[] = [
   { id: "overview", label: "Visão geral", mobileLabel: "Início", icon: Grid2X2 },
   { id: "agenda", label: "Agenda", mobileLabel: "Agenda", icon: CalendarDays },
   { id: "studio", label: "Estúdio", mobileLabel: "Estúdio", icon: WandSparkles },
@@ -216,19 +212,6 @@ function WeatherGlyph({ weather }: { weather: WeatherSnapshot }) {
   }
   if (code >= 95) return <CloudLightning />;
   return <CloudSun />;
-}
-
-function Logo() {
-  return (
-    <div className="brand" aria-label="LumaBoard">
-      <span className="brand-mark" aria-hidden="true">
-        {Array.from({ length: 12 }).map((_, index) => (
-          <i key={index} style={{ transform: `rotate(${index * 30}deg)` }} />
-        ))}
-      </span>
-      <span>LumaBoard</span>
-    </div>
-  );
 }
 
 function EInkPreview({
@@ -900,106 +883,52 @@ export function LumaBoardApp() {
         Pular para o conteúdo
       </a>
 
-      <aside className="sidebar">
-        <Logo />
-        <nav aria-label="Navegação principal">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              className={`nav-item ${activeView === id ? "active" : ""}`}
-              key={label}
-              aria-current={activeView === id ? "page" : undefined}
-              onClick={() => setActiveView(id)}
-            >
-              <Icon />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-version" aria-label={`Versão ${APP_VERSION}`}>v{APP_VERSION}</div>
-        <div className="sidebar-device">
-          <div className="device-dot" />
-          <div>
-            <strong>{deviceState.name}</strong>
-            <span>dados locais · sem conta</span>
-          </div>
-          <Monitor aria-hidden="true" />
-        </div>
-      </aside>
+      <AppSidebar
+        navItems={navItems}
+        activeView={activeView}
+        appVersion={APP_VERSION}
+        deviceName={deviceState.name}
+        onNavigate={setActiveView}
+      />
 
       <div className="content-shell">
-        <header className="topbar">
-          <div className="mobile-brand">
-            <Logo />
-            <span
-              className={`mobile-connection-dot ${pwa.online ? "" : "offline"}`}
-              title={pwa.statusText}
-              role="status"
-              aria-label={pwa.statusText}
-            />
-          </div>
-          <div className="crumb">
-            <span className={`status-dot ${pwa.online ? "" : "offline"}`} />
-            LumaBoard / {navItems.find((item) => item.id === activeView)?.label}
-            <small className="data-freshness">{pwa.online ? <Wifi /> : <WifiOff />} {pwa.statusText}</small>
-          </div>
-          <div className="topbar-actions">
-            <button className="version-pill" onClick={() => setActiveView("experience")} aria-label={`Abrir novidades da versão ${APP_VERSION}`}>v{APP_VERSION}</button>
-            <button className="global-search-trigger" onClick={() => setSearchOpen(true)} aria-label="Abrir busca global">
-              <Search /><span>Buscar no LumaBoard</span><kbd><Command /> K</kbd>
-            </button>
-            <button
-              className="theme-toggle"
-              onClick={toggleTheme}
-              aria-label={`Ativar tema ${theme === "paper" ? "noturno" : "claro"}`}
-            >
-              {theme === "paper" ? <Moon /> : <Sun />}
-              <span>{theme === "paper" ? "Modo noturno" : "Modo papel"}</span>
-            </button>
-            <button
-              className="icon-button"
-              aria-label={`Notificações${notificationCount > 0 ? `: ${notificationCount} pendente(s)` : ""}`}
-              aria-expanded={notificationPanelOpen}
-              aria-controls="notification-quick-panel"
-              onClick={() => setNotificationPanelOpen((open) => !open)}
-            >
-              <Bell />
-              {notificationCount > 0 && <i className="notification-dot" />}
-            </button>
-            <button className="icon-button" aria-label="Configurações" onClick={() => setActiveView("appearance")}>
-              <Settings />
-            </button>
-            <button className="avatar" aria-label={`Perfil local: ${avatarInitials}`} onClick={() => setActiveView("appearance")}>
-              {avatarInitials}
-            </button>
-          </div>
-        </header>
+        <AppTopbar
+          navItems={navItems}
+          activeView={activeView}
+          appVersion={APP_VERSION}
+          online={pwa.online}
+          statusText={pwa.statusText}
+          theme={theme}
+          notificationCount={notificationCount}
+          notificationPanelOpen={notificationPanelOpen}
+          avatarInitials={avatarInitials}
+          onNavigate={setActiveView}
+          onOpenSearch={() => setSearchOpen(true)}
+          onToggleTheme={toggleTheme}
+          onToggleNotifications={() => setNotificationPanelOpen((open) => !open)}
+        />
 
         {notificationPanelOpen && (
-          <div className="notification-quick-backdrop" role="presentation" onClick={() => setNotificationPanelOpen(false)}>
-            <section
-              id="notification-quick-panel"
-              className="notification-quick-panel panel"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Notificações rápidas"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header>
-                <div><span className="eyebrow">NOTIFICAÇÕES</span><strong>{notificationCount > 0 ? `${notificationCount} item(ns) pedem atenção` : "Tudo em ordem"}</strong></div>
-                <button className="icon-button compact" onClick={() => setNotificationPanelOpen(false)} aria-label="Fechar notificações"><X /></button>
-              </header>
-              <div className="notification-quick-list">
-                {notificationCount === 0 && <p><Check /> Nenhuma tarefa vencida, falha ou atualização pendente.</p>}
-                {localWidgets.notificationInbox.filter((item) => !item.readAt).slice(0, 4).map((item) => <button key={item.id} onClick={() => { localWidgets.markNotificationRead(item.id); setActiveView("agenda"); setNotificationPanelOpen(false); }}><Bell /><span><strong>{item.title}</strong><small>{item.body}</small></span></button>)}
-                {localWidgets.overdueTasks.length > 0 && <button onClick={() => { setActiveView("agenda"); setNotificationPanelOpen(false); }}><CalendarDays /><span><strong>{localWidgets.overdueTasks.length} tarefa(s) atrasada(s)</strong><small>Abrir agenda e concluir ou reagendar.</small></span></button>}
-                {pwa.updateAvailable && <button onClick={() => { setActiveView("experience"); setNotificationPanelOpen(false); }}><CloudDownload /><span><strong>Atualização disponível</strong><small>Abra Experiência para proteger os dados e atualizar.</small></span></button>}
-                {(publicDataStatus === "error" || weatherStatus === "error") && <button onClick={() => { setActiveView("diagnostics"); setNotificationPanelOpen(false); }}><Wrench /><span><strong>Uma fonte pública falhou</strong><small>Abrir diagnóstico das APIs.</small></span></button>}
-                {!pwa.online && <button onClick={() => { setActiveView("experience"); setNotificationPanelOpen(false); }}><WifiOff /><span><strong>Você está offline</strong><small>O LumaBoard está usando os últimos dados em cache.</small></span></button>}
-                {localWidgets.notificationPermission !== "granted" && localWidgets.notificationPermission !== "unsupported" && <button onClick={() => { void localWidgets.requestNotifications().then((permission) => { setToast(permission === "granted" ? "Notificações locais ativadas." : "Permissão de notificações não concedida."); }); }}><Bell /><span><strong>Ativar alertas locais</strong><small>Funcionam enquanto o LumaBoard estiver aberto.</small></span></button>}
-              </div>
-              <footer><div className="notification-quick-footer-actions">{localWidgets.unreadNotificationCount > 0 && <button className="button secondary" onClick={localWidgets.markAllNotificationsRead}>Marcar lidas</button>}<button className="button primary" onClick={() => { setActiveView("experience"); setNotificationPanelOpen(false); }}>Abrir central completa</button></div></footer>
-            </section>
-          </div>
+          <NotificationQuickPanel
+            notificationCount={notificationCount}
+            unreadInbox={localWidgets.notificationInbox.filter((item) => !item.readAt)}
+            overdueCount={localWidgets.overdueTasks.length}
+            updateAvailable={pwa.updateAvailable}
+            publicDataError={publicDataStatus === "error"}
+            weatherError={weatherStatus === "error"}
+            online={pwa.online}
+            notificationPermission={localWidgets.notificationPermission}
+            unreadCount={localWidgets.unreadNotificationCount}
+            onClose={() => setNotificationPanelOpen(false)}
+            onNavigate={setActiveView}
+            onMarkNotificationRead={localWidgets.markNotificationRead}
+            onMarkAllNotificationsRead={localWidgets.markAllNotificationsRead}
+            onRequestNotifications={() => {
+              void localWidgets.requestNotifications().then((permission) => {
+                setToast(permission === "granted" ? "Notificações locais ativadas." : "Permissão de notificações não concedida.");
+              });
+            }}
+          />
         )}
 
         {pwa.updateAvailable && <div className="global-update-banner"><CloudDownload /><span><strong>Atualização disponível</strong> Uma cópia local será criada antes de recarregar.</span><button onClick={pwa.applyUpdate}>Atualizar agora</button></div>}
